@@ -2,6 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useState, type FormEvent } from "react";
+import { structuredListToMarkdown } from "@/lib/deliverableToMarkdown";
 
 const FINALIZE_MARKER = "\u0000FINALIZE_READY\u0000";
 
@@ -30,6 +31,15 @@ export function PhaseChatClient({
   const [readyToFinalize, setReadyToFinalize] = useState<string | null>(null);
   const [finalizing, setFinalizing] = useState(false);
   const [deliverable, setDeliverable] = useState(initialDeliverable);
+  const [view, setView] = useState<"structured" | "markdown">("structured");
+  const [copied, setCopied] = useState(false);
+
+  async function handleCopyMarkdown() {
+    if (!deliverable) return;
+    await navigator.clipboard.writeText(structuredListToMarkdown(deliverable));
+    setCopied(true);
+    setTimeout(() => setCopied(false), 1500);
+  }
 
   async function handleSend(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -168,9 +178,40 @@ export function PhaseChatClient({
       </div>
 
       <div className="rounded-lg border border-gray-200 p-4">
-        <h2 className="mb-3 text-sm font-semibold text-gray-900">成果物</h2>
+        <div className="mb-3 flex items-center justify-between">
+          <h2 className="text-sm font-semibold text-gray-900">成果物</h2>
+          {deliverable && (
+            <div className="flex gap-1 rounded-md bg-gray-100 p-0.5 text-xs">
+              <button
+                onClick={() => setView("structured")}
+                className={`rounded px-2 py-1 ${view === "structured" ? "bg-white shadow-sm" : "text-gray-500"}`}
+              >
+                構造化ビュー
+              </button>
+              <button
+                onClick={() => setView("markdown")}
+                className={`rounded px-2 py-1 ${view === "markdown" ? "bg-white shadow-sm" : "text-gray-500"}`}
+              >
+                Markdownで見る
+              </button>
+            </div>
+          )}
+        </div>
         {!deliverable && <p className="text-sm text-gray-400">まだ確定していません。</p>}
-        {deliverable && (
+        {deliverable && view === "markdown" && (
+          <div>
+            <pre className="mb-2 max-h-96 overflow-auto whitespace-pre-wrap rounded-md bg-gray-50 p-3 text-xs text-gray-800">
+              {structuredListToMarkdown(deliverable)}
+            </pre>
+            <button
+              onClick={handleCopyMarkdown}
+              className="rounded-md border border-gray-300 px-3 py-1.5 text-xs text-gray-700 hover:bg-gray-50"
+            >
+              {copied ? "コピーしました" : "コピー"}
+            </button>
+          </div>
+        )}
+        {deliverable && view === "structured" && (
           <table className="w-full text-left text-sm">
             <thead>
               <tr className="border-b border-gray-200 text-xs text-gray-500">
