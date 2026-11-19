@@ -33,12 +33,73 @@ export function PhaseChatClient({
   const [deliverable, setDeliverable] = useState(initialDeliverable);
   const [view, setView] = useState<"structured" | "markdown">("structured");
   const [copied, setCopied] = useState(false);
+  const [status, setStatus] = useState(phaseStatus);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editDraft, setEditDraft] = useState<StructuredItem | null>(null);
+  const [saving, setSaving] = useState(false);
+  const [resolving, setResolving] = useState(false);
 
   async function handleCopyMarkdown() {
     if (!deliverable) return;
     await navigator.clipboard.writeText(structuredListToMarkdown(deliverable));
     setCopied(true);
     setTimeout(() => setCopied(false), 1500);
+  }
+
+  async function saveItems(items: StructuredItem[]) {
+    setSaving(true);
+    const res = await fetch(`/api/projects/${projectId}/phases/${phaseType}/deliverable`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ items }),
+    });
+    setSaving(false);
+
+    if (!res.ok) {
+      alert("保存に失敗しました。");
+      return;
+    }
+
+    setDeliverable({ items });
+    setEditingId(null);
+    setEditDraft(null);
+    router.refresh();
+  }
+
+  function startEdit(item: StructuredItem) {
+    setEditingId(item.id);
+    setEditDraft({ ...item });
+  }
+
+  function handleSaveEdit() {
+    if (!deliverable || !editDraft) return;
+    const items = deliverable.items.map((i) => (i.id === editDraft.id ? editDraft : i));
+    saveItems(items);
+  }
+
+  function handleDelete(id: string) {
+    if (!deliverable) return;
+    if (!confirm("この項目を削除しますか？")) return;
+    saveItems(deliverable.items.filter((i) => i.id !== id));
+  }
+
+  function handleAddItem() {
+    if (!deliverable) return;
+    const newItem: StructuredItem = { id: `NEW-${Date.now()}`, title: "", description: "", priority: "Must" };
+    setDeliverable({ items: [...deliverable.items, newItem] });
+    startEdit(newItem);
+  }
+
+  async function handleResolveReview() {
+    setResolving(true);
+    const res = await fetch(`/api/projects/${projectId}/phases/${phaseType}/resolve-review`, { method: "POST" });
+    setResolving(false);
+    if (!res.ok) {
+      alert("操作に失敗しました。");
+      return;
+    }
+    setStatus("DONE");
+    router.refresh();
   }
 
   async function handleSend(event: FormEvent<HTMLFormElement>) {
@@ -112,10 +173,11 @@ export function PhaseChatClient({
     const data = await res.json();
     setDeliverable(data.content);
     setReadyToFinalize(null);
+    setStatus("DONE");
     router.refresh();
   }
 
-  const isDone = phaseStatus === "DONE";
+  const isDone = status === "DONE" || status === "NEEDS_REVIEW";
 
   return (
     <div className="mx-auto grid max-w-5xl grid-cols-1 gap-6 px-4 py-8 md:grid-cols-2">
@@ -178,6 +240,18 @@ export function PhaseChatClient({
       </div>
 
       <div className="rounded-lg border border-gray-200 p-4">
+        {status === "NEEDS_REVIEW" && (
+          <div className="mb-3 flex items-center justify-between rounded-md bg-amber-50 px-3 py-2">
+            <p className="text-sm text-amber-800">上流フェーズが変更されました。内容を確認してください。</p>
+            <button
+              onClick={handleResolveReview}
+              disabled={resolving}
+              className="rounded-md border border-amber-300 bg-white px-2 py-1 text-xs text-amber-800 hover:bg-amber-100 disabled:opacity-50"
+            >
+              {resolving ? "処理中..." : "問題なし"}
+            </button>
+          </div>
+        )}
         <div className="mb-3 flex items-center justify-between">
           <h2 className="text-sm font-semibold text-gray-900">成果物</h2>
           {deliverable && (
@@ -212,26 +286,92 @@ export function PhaseChatClient({
           </div>
         )}
         {deliverable && view === "structured" && (
-          <table className="w-full text-left text-sm">
-            <thead>
-              <tr className="border-b border-gray-200 text-xs text-gray-500">
-                <th className="py-1 pr-2">ID</th>
-                <th className="py-1 pr-2">タイトル</th>
-                <th className="py-1 pr-2">説明</th>
-                <th className="py-1">優先度</th>
-              </tr>
-            </thead>
-            <tbody>
-              {deliverable.items.map((item) => (
-                <tr key={item.id} className="border-b border-gray-100 align-top">
-                  <td className="py-2 pr-2 font-mono text-xs text-gray-500">{item.id}</td>
-                  <td className="py-2 pr-2 font-medium text-gray-900">{item.title}</td>
-                  <td className="py-2 pr-2 text-gray-600">{item.description}</td>
-                  <td className="py-2 text-gray-600">{item.priority}</td>
+          <>
+            <table className="w-full text-left text-sm">
+              <thead>
+                <tr className="border-b border-gray-200 text-xs text-gray-500">
+                  <th className="py-1 pr-2">ID</th>
+                  <th className="py-1 pr-2">タイトル</th>
+                  <th className="py-1 pr-2">説明</th>
+                  <th className="py-1 pr-2">優先度</th>
+                  <th className="py-1"></th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {deliverable.items.map((item) =>
+                  editingId === item.id && editDraft ? (
+                    <tr key={item.id} className="border-b border-gray-100 align-top">
+                      <td className="py-2 pr-2 font-mono text-xs text-gray-500">{item.id}</td>
+                      <td className="py-2 pr-2">
+                        <input
+                          value={editDraft.title}
+                          onChange={(e) => setEditDraft({ ...editDraft, title: e.target.value })}
+                          className="w-full rounded border border-gray-300 px-1 py-0.5 text-sm"
+                        />
+                      </td>
+                      <td className="py-2 pr-2">
+                        <input
+                          value={editDraft.description}
+                          onChange={(e) => setEditDraft({ ...editDraft, description: e.target.value })}
+                          className="w-full rounded border border-gray-300 px-1 py-0.5 text-sm"
+                        />
+                      </td>
+                      <td className="py-2 pr-2">
+                        <select
+                          value={editDraft.priority}
+                          onChange={(e) => setEditDraft({ ...editDraft, priority: e.target.value })}
+                          className="rounded border border-gray-300 px-1 py-0.5 text-sm"
+                        >
+                          <option value="Must">Must</option>
+                          <option value="Should">Should</option>
+                          <option value="Could">Could</option>
+                        </select>
+                      </td>
+                      <td className="py-2 whitespace-nowrap">
+                        <button
+                          onClick={handleSaveEdit}
+                          disabled={saving}
+                          className="mr-2 text-xs text-gray-900 underline disabled:opacity-50"
+                        >
+                          保存
+                        </button>
+                        <button
+                          onClick={() => {
+                            setEditingId(null);
+                            setEditDraft(null);
+                          }}
+                          className="text-xs text-gray-500"
+                        >
+                          取消
+                        </button>
+                      </td>
+                    </tr>
+                  ) : (
+                    <tr key={item.id} className="border-b border-gray-100 align-top">
+                      <td className="py-2 pr-2 font-mono text-xs text-gray-500">{item.id}</td>
+                      <td className="py-2 pr-2 font-medium text-gray-900">{item.title}</td>
+                      <td className="py-2 pr-2 text-gray-600">{item.description}</td>
+                      <td className="py-2 pr-2 text-gray-600">{item.priority}</td>
+                      <td className="py-2 whitespace-nowrap">
+                        <button onClick={() => startEdit(item)} className="mr-2 text-xs text-gray-600 hover:text-gray-900">
+                          編集
+                        </button>
+                        <button onClick={() => handleDelete(item.id)} className="text-xs text-red-500 hover:text-red-700">
+                          削除
+                        </button>
+                      </td>
+                    </tr>
+                  ),
+                )}
+              </tbody>
+            </table>
+            <button
+              onClick={handleAddItem}
+              className="mt-3 rounded-md border border-dashed border-gray-300 px-3 py-1.5 text-xs text-gray-600 hover:bg-gray-50"
+            >
+              ＋ 項目を追加
+            </button>
+          </>
         )}
       </div>
     </div>
