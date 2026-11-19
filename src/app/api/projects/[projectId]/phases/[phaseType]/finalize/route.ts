@@ -4,7 +4,7 @@ import type { PhaseType } from "@/generated/prisma/client";
 import { prisma } from "@/lib/prisma";
 import { requireUser } from "@/lib/session";
 import { loadProjectWithPhases, isPhaseUnlocked } from "@/lib/phaseGuard";
-import { buildHearingSystemPrompt } from "@/lib/phases";
+import { buildHearingSystemPrompt, getPhaseConfig } from "@/lib/phases";
 import { anthropic, CLAUDE_MODEL } from "@/lib/claude";
 import { StructuredListSchema } from "@/lib/schemas/structuredList";
 
@@ -26,9 +26,11 @@ export async function POST(
   }
 
   const phase = project.phases.find((p) => p.type === targetType)!;
+  const config = getPhaseConfig(targetType);
 
-  // M1時点ではSTRUCTURED_LIST形式のフェーズ(企画・要件定義・機能設計・詳細設計・テスト設計)のみ対応
-  if (targetType !== "PLANNING") {
+  // 構造化リスト形式のフェーズ(企画・要件定義・機能設計・詳細設計・テスト設計)のみ対応。
+  // 画面設計(WIREFRAME)・DB設計(ER_DIAGRAM)・実装TODO(CHECKLIST)はM3以降で別途対応する。
+  if (config.format !== "STRUCTURED_LIST") {
     return NextResponse.json({ error: "このフェーズのfinalizeは未対応です。" }, { status: 501 });
   }
 
@@ -66,7 +68,7 @@ export async function POST(
     await tx.deliverable.upsert({
       where: { phaseId: phase.id },
       update: { content, version: (existingDeliverable?.version ?? 0) + 1, isFinal: true },
-      create: { phaseId: phase.id, format: "STRUCTURED_LIST", content, version: 1, isFinal: true },
+      create: { phaseId: phase.id, format: config.format, content, version: 1, isFinal: true },
     });
 
     await tx.phase.update({ where: { id: phase.id }, data: { status: "DONE" } });

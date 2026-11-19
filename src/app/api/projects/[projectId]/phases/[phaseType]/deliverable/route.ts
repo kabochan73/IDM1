@@ -3,6 +3,7 @@ import type { PhaseType } from "@/generated/prisma/client";
 import { prisma } from "@/lib/prisma";
 import { requireUser } from "@/lib/session";
 import { loadProjectWithPhases, isPhaseUnlocked } from "@/lib/phaseGuard";
+import { getPhaseConfig } from "@/lib/phases";
 import { StructuredListSchema } from "@/lib/schemas/structuredList";
 
 export async function PATCH(request: Request, ctx: RouteContext<"/api/projects/[projectId]/phases/[phaseType]/deliverable">) {
@@ -26,7 +27,7 @@ export async function PATCH(request: Request, ctx: RouteContext<"/api/projects/[
     return NextResponse.json({ error: "まだ成果物が確定していません。" }, { status: 400 });
   }
 
-  if (targetType !== "PLANNING") {
+  if (getPhaseConfig(targetType).format !== "STRUCTURED_LIST") {
     return NextResponse.json({ error: "このフェーズの編集は未対応です。" }, { status: 501 });
   }
 

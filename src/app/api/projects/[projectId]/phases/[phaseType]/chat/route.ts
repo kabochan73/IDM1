@@ -22,7 +22,8 @@ function buildPriorContext(
   const parts = prior.map((p) => {
     const content = p.deliverable!.content as { items?: { id: string; title: string; description: string }[] };
     const lines = (content.items ?? []).map((item) => `  - [${item.id}] ${item.title}: ${item.description}`);
-    return `## ${p.type}\n${lines.join("\n")}`;
+    // WIREFRAME/ER_DIAGRAM/CHECKLIST等、items配列を持たない形式は未対応のためプレースホルダーのみ記載する。
+    return `## ${p.type}\n${lines.length > 0 ? lines.join("\n") : "  (このフェーズは確定済みです)"}`;
   });
 
   return `これまでに確定した前フェーズの内容:\n${parts.join("\n\n")}`;
