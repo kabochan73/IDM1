@@ -34,6 +34,7 @@ export function PhaseChatClient({
   const [view, setView] = useState<"structured" | "markdown">("structured");
   const [copied, setCopied] = useState(false);
   const [status, setStatus] = useState(phaseStatus);
+  const [reopened, setReopened] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editDraft, setEditDraft] = useState<StructuredItem | null>(null);
   const [saving, setSaving] = useState(false);
@@ -99,6 +100,7 @@ export function PhaseChatClient({
       return;
     }
     setStatus("DONE");
+    setReopened(false);
     router.refresh();
   }
 
@@ -174,6 +176,7 @@ export function PhaseChatClient({
     setDeliverable(data.content);
     setReadyToFinalize(null);
     setStatus("DONE");
+    setReopened(false);
     router.refresh();
   }
 
@@ -227,22 +230,34 @@ export function PhaseChatClient({
           </div>
         )}
 
-        <form onSubmit={handleSend} className="flex gap-2 border-t border-gray-200 p-4">
-          <input
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            disabled={sending}
-            placeholder="メッセージを入力"
-            className="flex-1 rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-gray-500 focus:outline-none disabled:bg-gray-50"
-          />
-          <button
-            type="submit"
-            disabled={sending}
-            className="rounded-md bg-gray-900 px-4 py-2 text-sm font-medium text-white hover:bg-gray-800 disabled:opacity-50"
-          >
-            送信
-          </button>
-        </form>
+        {(status === "DONE" || status === "NEEDS_REVIEW") && !reopened ? (
+          <div className="flex items-center justify-between border-t border-gray-200 p-4">
+            <span className="text-sm text-gray-500">このフェーズは確定済みです</span>
+            <button
+              onClick={() => setReopened(true)}
+              className="rounded-md border border-gray-300 px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-50"
+            >
+              まだ続ける
+            </button>
+          </div>
+        ) : (
+          <form onSubmit={handleSend} className="flex gap-2 border-t border-gray-200 p-4">
+            <input
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              disabled={sending}
+              placeholder="メッセージを入力"
+              className="flex-1 rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-gray-500 focus:outline-none disabled:bg-gray-50"
+            />
+            <button
+              type="submit"
+              disabled={sending}
+              className="rounded-md bg-gray-900 px-4 py-2 text-sm font-medium text-white hover:bg-gray-800 disabled:opacity-50"
+            >
+              送信
+            </button>
+          </form>
+        )}
       </div>
 
       <div className="rounded-lg border border-gray-200 p-4">
