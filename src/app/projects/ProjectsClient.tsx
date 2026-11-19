@@ -55,54 +55,51 @@ export function ProjectsClient({ initialProjects }: { initialProjects: ProjectSu
     }
   }
 
-  async function handleLogout() {
-    await fetch("/api/auth/logout", { method: "POST" });
-    router.push("/login");
-    router.refresh();
-  }
-
   return (
-    <div className="mx-auto max-w-3xl px-4 py-10">
-      <div className="mb-8 flex items-center justify-between">
-        <h1 className="text-xl font-semibold text-gray-900">Idea Design Machine</h1>
-        <button onClick={handleLogout} className="text-sm text-gray-500 hover:text-gray-700">
-          ログアウト
-        </button>
+    <div className="mx-auto max-w-4xl px-8 py-10">
+      <div className="mb-6 flex items-center justify-between">
+        <h1 className="text-lg font-semibold text-gray-900">プロジェクト</h1>
       </div>
 
-      <form onSubmit={handleCreate} className="mb-8 flex gap-2">
+      <form onSubmit={handleCreate} className="mb-6 flex gap-2 rounded-lg border border-gray-200 bg-white p-4">
         <input
           value={title}
           onChange={(e) => setTitle(e.target.value)}
           placeholder="新しいプロジェクトのタイトル"
-          className="flex-1 rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-gray-500 focus:outline-none"
+          className="flex-1 rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-brand-600 focus:outline-none"
         />
         <button
           type="submit"
           disabled={pending}
-          className="rounded-md bg-gray-900 px-4 py-2 text-sm font-medium text-white hover:bg-gray-800 disabled:opacity-50"
+          className="rounded-md bg-brand-600 px-4 py-2 text-sm font-medium text-white hover:bg-brand-700 disabled:opacity-50"
         >
           + 新規プロジェクト
         </button>
       </form>
       {error && <p className="mb-4 text-sm text-red-600">{error}</p>}
 
-      <ul className="space-y-3">
+      <ul className="grid gap-3 sm:grid-cols-2">
         {projects.map((project) => (
           <li
             key={project.id}
-            className="flex items-center justify-between rounded-lg border border-gray-200 bg-white px-4 py-3"
+            className="flex flex-col justify-between rounded-lg border border-gray-200 bg-white p-4 shadow-sm"
           >
             <div>
               <Link href={`/projects/${project.id}`} className="font-medium text-gray-900 hover:underline">
                 {project.title}
               </Link>
-              <p className="text-xs text-gray-500">
+              <div className="mt-2 h-1.5 w-full rounded-full bg-gray-100">
+                <div
+                  className="h-1.5 rounded-full bg-brand-600"
+                  style={{ width: `${(project.doneCount / project.totalCount) * 100}%` }}
+                />
+              </div>
+              <p className="mt-1 text-xs text-gray-500">
                 {project.doneCount}/{project.totalCount} フェーズ完了
               </p>
             </div>
-            <div className="flex gap-3">
-              <Link href={`/projects/${project.id}`} className="text-sm text-gray-600 hover:text-gray-900">
+            <div className="mt-3 flex justify-end gap-3">
+              <Link href={`/projects/${project.id}`} className="text-sm text-brand-600 hover:text-brand-700">
                 開く
               </Link>
               <button onClick={() => handleDelete(project.id)} className="text-sm text-red-500 hover:text-red-700">

@@ -3,6 +3,8 @@
 import { useRouter } from "next/navigation";
 import { useState, type FormEvent } from "react";
 import { structuredListToMarkdown } from "@/lib/deliverableToMarkdown";
+import { STATUS_BADGE_CLASS, STATUS_LABEL } from "@/lib/phaseStatus";
+import type { PhaseStatus } from "@/generated/prisma/client";
 
 const FINALIZE_MARKER = "\u0000FINALIZE_READY\u0000";
 
@@ -180,19 +182,14 @@ export function PhaseChatClient({
     router.refresh();
   }
 
-  const statusLabel: Record<string, string> = {
-    NOT_STARTED: "未着手",
-    IN_PROGRESS: "進行中",
-    DONE: "完了",
-    NEEDS_REVIEW: "要見直し",
-  };
-
   return (
-    <div className="mx-auto grid max-w-5xl grid-cols-1 gap-6 px-4 py-8 md:grid-cols-2">
-      <div className="flex flex-col rounded-lg border border-gray-200">
+    <div className="mx-auto grid max-w-5xl grid-cols-1 gap-6 md:grid-cols-2">
+      <div className="flex flex-col rounded-lg border border-gray-200 bg-white">
         <div className="flex items-center justify-between border-b border-gray-200 px-4 py-3">
           <h1 className="text-sm font-semibold text-gray-900">{phaseLabel}フェーズ</h1>
-          <span className="text-xs text-gray-500">{statusLabel[status]}</span>
+          <span className={`rounded-full px-2 py-0.5 text-xs ${STATUS_BADGE_CLASS[status as PhaseStatus]}`}>
+            {STATUS_LABEL[status as PhaseStatus]}
+          </span>
         </div>
         <div className="flex-1 space-y-3 overflow-y-auto px-4 py-4" style={{ maxHeight: "60vh" }}>
           {messages.map((m, i) => (
@@ -260,7 +257,7 @@ export function PhaseChatClient({
         )}
       </div>
 
-      <div className="rounded-lg border border-gray-200 p-4">
+      <div className="rounded-lg border border-gray-200 bg-white p-4">
         {status === "NEEDS_REVIEW" && (
           <div className="mb-3 flex items-center justify-between rounded-md bg-amber-50 px-3 py-2">
             <p className="text-sm text-amber-800">上流フェーズが変更されました。内容を確認してください。</p>
