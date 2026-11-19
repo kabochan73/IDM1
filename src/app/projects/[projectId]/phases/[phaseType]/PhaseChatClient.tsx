@@ -177,13 +177,19 @@ export function PhaseChatClient({
     router.refresh();
   }
 
-  const isDone = status === "DONE" || status === "NEEDS_REVIEW";
+  const statusLabel: Record<string, string> = {
+    NOT_STARTED: "未着手",
+    IN_PROGRESS: "進行中",
+    DONE: "完了",
+    NEEDS_REVIEW: "要見直し",
+  };
 
   return (
     <div className="mx-auto grid max-w-5xl grid-cols-1 gap-6 px-4 py-8 md:grid-cols-2">
       <div className="flex flex-col rounded-lg border border-gray-200">
-        <div className="border-b border-gray-200 px-4 py-3">
+        <div className="flex items-center justify-between border-b border-gray-200 px-4 py-3">
           <h1 className="text-sm font-semibold text-gray-900">{phaseLabel}フェーズ</h1>
+          <span className="text-xs text-gray-500">{statusLabel[status]}</span>
         </div>
         <div className="flex-1 space-y-3 overflow-y-auto px-4 py-4" style={{ maxHeight: "60vh" }}>
           {messages.map((m, i) => (
@@ -225,13 +231,13 @@ export function PhaseChatClient({
           <input
             value={input}
             onChange={(e) => setInput(e.target.value)}
-            disabled={sending || isDone}
-            placeholder={isDone ? "このフェーズは確定済みです" : "メッセージを入力"}
+            disabled={sending}
+            placeholder="メッセージを入力"
             className="flex-1 rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-gray-500 focus:outline-none disabled:bg-gray-50"
           />
           <button
             type="submit"
-            disabled={sending || isDone}
+            disabled={sending}
             className="rounded-md bg-gray-900 px-4 py-2 text-sm font-medium text-white hover:bg-gray-800 disabled:opacity-50"
           >
             送信
