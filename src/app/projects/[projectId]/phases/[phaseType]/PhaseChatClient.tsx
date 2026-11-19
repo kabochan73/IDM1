@@ -2,20 +2,20 @@
 
 import { useRouter } from "next/navigation";
 import { useState, type FormEvent } from "react";
-import { structuredListToMarkdown } from "@/lib/deliverableToMarkdown";
+import { DeliverablePanel } from "@/components/DeliverablePanel";
 import { STATUS_BADGE_CLASS, STATUS_LABEL } from "@/lib/phaseStatus";
-import type { PhaseStatus } from "@/generated/prisma/client";
+import type { PhaseStatus, DeliverableFormat } from "@/generated/prisma/client";
 
 const FINALIZE_MARKER = "\u0000FINALIZE_READY\u0000";
 
 type ChatMessageView = { role: "USER" | "ASSISTANT"; content: string };
-type StructuredItem = { id: string; title: string; description: string; priority: string };
 
 export function PhaseChatClient({
   projectId,
   phaseType,
   phaseLabel,
   phaseStatus,
+  deliverableFormat,
   initialMessages,
   initialDeliverable,
 }: {
@@ -23,8 +23,9 @@ export function PhaseChatClient({
   phaseType: string;
   phaseLabel: string;
   phaseStatus: string;
+  deliverableFormat: DeliverableFormat;
   initialMessages: ChatMessageView[];
-  initialDeliverable: { items: StructuredItem[] } | null;
+  initialDeliverable: unknown;
 }) {
   const router = useRouter();
   const [messages, setMessages] = useState<ChatMessageView[]>(initialMessages);
@@ -33,65 +34,9 @@ export function PhaseChatClient({
   const [readyToFinalize, setReadyToFinalize] = useState<string | null>(null);
   const [finalizing, setFinalizing] = useState(false);
   const [deliverable, setDeliverable] = useState(initialDeliverable);
-  const [view, setView] = useState<"structured" | "markdown">("structured");
-  const [copied, setCopied] = useState(false);
   const [status, setStatus] = useState(phaseStatus);
   const [reopened, setReopened] = useState(false);
-  const [editingId, setEditingId] = useState<string | null>(null);
-  const [editDraft, setEditDraft] = useState<StructuredItem | null>(null);
-  const [saving, setSaving] = useState(false);
   const [resolving, setResolving] = useState(false);
-
-  async function handleCopyMarkdown() {
-    if (!deliverable) return;
-    await navigator.clipboard.writeText(structuredListToMarkdown(deliverable));
-    setCopied(true);
-    setTimeout(() => setCopied(false), 1500);
-  }
-
-  async function saveItems(items: StructuredItem[]) {
-    setSaving(true);
-    const res = await fetch(`/api/projects/${projectId}/phases/${phaseType}/deliverable`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ items }),
-    });
-    setSaving(false);
-
-    if (!res.ok) {
-      alert("保存に失敗しました。");
-      return;
-    }
-
-    setDeliverable({ items });
-    setEditingId(null);
-    setEditDraft(null);
-    router.refresh();
-  }
-
-  function startEdit(item: StructuredItem) {
-    setEditingId(item.id);
-    setEditDraft({ ...item });
-  }
-
-  function handleSaveEdit() {
-    if (!deliverable || !editDraft) return;
-    const items = deliverable.items.map((i) => (i.id === editDraft.id ? editDraft : i));
-    saveItems(items);
-  }
-
-  function handleDelete(id: string) {
-    if (!deliverable) return;
-    if (!confirm("この項目を削除しますか？")) return;
-    saveItems(deliverable.items.filter((i) => i.id !== id));
-  }
-
-  function handleAddItem() {
-    if (!deliverable) return;
-    const newItem: StructuredItem = { id: `NEW-${Date.now()}`, title: "", description: "", priority: "Must" };
-    setDeliverable({ items: [...deliverable.items, newItem] });
-    startEdit(newItem);
-  }
 
   async function handleResolveReview() {
     setResolving(true);
@@ -270,127 +215,14 @@ export function PhaseChatClient({
             </button>
           </div>
         )}
-        <div className="mb-3 flex items-center justify-between">
-          <h2 className="text-sm font-semibold text-gray-900">成果物</h2>
-          {deliverable && (
-            <div className="flex gap-1 rounded-md bg-gray-100 p-0.5 text-xs">
-              <button
-                onClick={() => setView("structured")}
-                className={`rounded px-2 py-1 ${view === "structured" ? "bg-white shadow-sm" : "text-gray-500"}`}
-              >
-                構造化ビュー
-              </button>
-              <button
-                onClick={() => setView("markdown")}
-                className={`rounded px-2 py-1 ${view === "markdown" ? "bg-white shadow-sm" : "text-gray-500"}`}
-              >
-                Markdownで見る
-              </button>
-            </div>
-          )}
-        </div>
-        {!deliverable && <p className="text-sm text-gray-400">まだ確定していません。</p>}
-        {deliverable && view === "markdown" && (
-          <div>
-            <pre className="mb-2 max-h-96 overflow-auto whitespace-pre-wrap rounded-md bg-gray-50 p-3 text-xs text-gray-800">
-              {structuredListToMarkdown(deliverable)}
-            </pre>
-            <button
-              onClick={handleCopyMarkdown}
-              className="rounded-md border border-gray-300 px-3 py-1.5 text-xs text-gray-700 hover:bg-gray-50"
-            >
-              {copied ? "コピーしました" : "コピー"}
-            </button>
-          </div>
-        )}
-        {deliverable && view === "structured" && (
-          <>
-            <table className="w-full text-left text-sm">
-              <thead>
-                <tr className="border-b border-gray-200 text-xs text-gray-500">
-                  <th className="py-1 pr-2">ID</th>
-                  <th className="py-1 pr-2">タイトル</th>
-                  <th className="py-1 pr-2">説明</th>
-                  <th className="py-1 pr-2">優先度</th>
-                  <th className="py-1"></th>
-                </tr>
-              </thead>
-              <tbody>
-                {deliverable.items.map((item) =>
-                  editingId === item.id && editDraft ? (
-                    <tr key={item.id} className="border-b border-gray-100 align-top">
-                      <td className="py-2 pr-2 font-mono text-xs text-gray-500">{item.id}</td>
-                      <td className="py-2 pr-2">
-                        <input
-                          value={editDraft.title}
-                          onChange={(e) => setEditDraft({ ...editDraft, title: e.target.value })}
-                          className="w-full rounded border border-gray-300 px-1 py-0.5 text-sm"
-                        />
-                      </td>
-                      <td className="py-2 pr-2">
-                        <input
-                          value={editDraft.description}
-                          onChange={(e) => setEditDraft({ ...editDraft, description: e.target.value })}
-                          className="w-full rounded border border-gray-300 px-1 py-0.5 text-sm"
-                        />
-                      </td>
-                      <td className="py-2 pr-2">
-                        <select
-                          value={editDraft.priority}
-                          onChange={(e) => setEditDraft({ ...editDraft, priority: e.target.value })}
-                          className="rounded border border-gray-300 px-1 py-0.5 text-sm"
-                        >
-                          <option value="Must">Must</option>
-                          <option value="Should">Should</option>
-                          <option value="Could">Could</option>
-                        </select>
-                      </td>
-                      <td className="py-2 whitespace-nowrap">
-                        <button
-                          onClick={handleSaveEdit}
-                          disabled={saving}
-                          className="mr-2 text-xs text-gray-900 underline disabled:opacity-50"
-                        >
-                          保存
-                        </button>
-                        <button
-                          onClick={() => {
-                            setEditingId(null);
-                            setEditDraft(null);
-                          }}
-                          className="text-xs text-gray-500"
-                        >
-                          取消
-                        </button>
-                      </td>
-                    </tr>
-                  ) : (
-                    <tr key={item.id} className="border-b border-gray-100 align-top">
-                      <td className="py-2 pr-2 font-mono text-xs text-gray-500">{item.id}</td>
-                      <td className="py-2 pr-2 font-medium text-gray-900">{item.title}</td>
-                      <td className="py-2 pr-2 text-gray-600">{item.description}</td>
-                      <td className="py-2 pr-2 text-gray-600">{item.priority}</td>
-                      <td className="py-2 whitespace-nowrap">
-                        <button onClick={() => startEdit(item)} className="mr-2 text-xs text-gray-600 hover:text-gray-900">
-                          編集
-                        </button>
-                        <button onClick={() => handleDelete(item.id)} className="text-xs text-red-500 hover:text-red-700">
-                          削除
-                        </button>
-                      </td>
-                    </tr>
-                  ),
-                )}
-              </tbody>
-            </table>
-            <button
-              onClick={handleAddItem}
-              className="mt-3 rounded-md border border-dashed border-gray-300 px-3 py-1.5 text-xs text-gray-600 hover:bg-gray-50"
-            >
-              ＋ 項目を追加
-            </button>
-          </>
-        )}
+        <h2 className="mb-3 text-sm font-semibold text-gray-900">成果物</h2>
+        <DeliverablePanel
+          projectId={projectId}
+          phaseType={phaseType}
+          format={deliverableFormat}
+          deliverable={deliverable as Parameters<typeof DeliverablePanel>[0]["deliverable"]}
+          onSaved={(content) => setDeliverable(content)}
+        />
       </div>
     </div>
   );

@@ -44,12 +44,9 @@ export default async function PhasePage(props: PageProps<"/projects/[projectId]/
         phaseType={phaseType}
         phaseLabel={config.labelJa}
         phaseStatus={phase.status}
+        deliverableFormat={config.format}
         initialMessages={history.map((m) => ({ role: m.role, content: m.content }))}
-        initialDeliverable={
-          deliverable
-            ? (deliverable.content as { items: { id: string; title: string; description: string; priority: string }[] })
-            : null
-        }
+        initialDeliverable={deliverable ? deliverable.content : null}
       />
     </div>
   );

@@ -5,6 +5,8 @@ import { requireUser } from "@/lib/session";
 import { loadProjectWithPhases, isPhaseUnlocked } from "@/lib/phaseGuard";
 import { getPhaseConfig } from "@/lib/phases";
 import { StructuredListSchema } from "@/lib/schemas/structuredList";
+import { WireframeContentSchema } from "@/lib/schemas/wireframe";
+import type { Prisma } from "@/generated/prisma/client";
 
 export async function PATCH(request: Request, ctx: RouteContext<"/api/projects/[projectId]/phases/[phaseType]/deliverable">) {
   const { userId } = await requireUser();
@@ -27,20 +29,30 @@ export async function PATCH(request: Request, ctx: RouteContext<"/api/projects/[
     return NextResponse.json({ error: "まだ成果物が確定していません。" }, { status: 400 });
   }
 
-  if (getPhaseConfig(targetType).format !== "STRUCTURED_LIST") {
+  const format = getPhaseConfig(targetType).format;
+  if (format !== "STRUCTURED_LIST" && format !== "WIREFRAME") {
     return NextResponse.json({ error: "このフェーズの編集は未対応です。" }, { status: 501 });
   }
 
   const body = await request.json().catch(() => null);
-  const parsed = StructuredListSchema.safeParse(body);
+  const parsed = (format === "WIREFRAME" ? WireframeContentSchema : StructuredListSchema).safeParse(body);
   if (!parsed.success) {
     return NextResponse.json({ error: "入力内容が正しくありません。" }, { status: 400 });
+  }
+
+  // WIREFRAMEの編集ではdesignImagesはこのAPIの対象外のフィールドなので、既存の値を引き継ぐ。
+  let content: Prisma.InputJsonValue = parsed.data;
+  if (format === "WIREFRAME") {
+    const existingContent = existingDeliverable.content as { designImages?: unknown };
+    if (existingContent.designImages) {
+      content = { ...parsed.data, designImages: existingContent.designImages };
+    }
   }
 
   await prisma.$transaction(async (tx) => {
     await tx.deliverable.update({
       where: { phaseId: phase.id },
-      data: { content: parsed.data, version: existingDeliverable.version + 1 },
+      data: { content, version: existingDeliverable.version + 1 },
     });
 
     // 直接編集も再確定と同じ扱い: 確定済み(DONE/NEEDS_REVIEW)の内容が変わった場合、
@@ -60,5 +72,5 @@ export async function PATCH(request: Request, ctx: RouteContext<"/api/projects/[
     }
   });
 
-  return NextResponse.json({ ok: true, content: parsed.data });
+  return NextResponse.json({ ok: true, content });
 }

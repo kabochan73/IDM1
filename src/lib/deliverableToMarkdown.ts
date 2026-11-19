@@ -1,5 +1,12 @@
+import type { WireframeElement } from "@/lib/schemas/wireframe";
+
 type StructuredListContent = {
   items: { id: string; title: string; description: string; priority: string; relatedIds?: string[] }[];
+};
+
+type WireframeContent = {
+  screens: { name: string; elements: WireframeElement[] }[];
+  transitionsMermaid: string;
 };
 
 /**
@@ -12,4 +19,20 @@ export function structuredListToMarkdown(content: StructuredListContent): string
     return `- **[${item.id}] ${item.title}**(${item.priority}): ${item.description}${related}`;
   });
   return lines.join("\n");
+}
+
+function elementToMarkdown(element: WireframeElement): string {
+  const line = `- [${element.type}] ${element.label}`;
+  const children = element.children.map((child) => `  - [${child.type}] ${child.label}`);
+  return [line, ...children].join("\n");
+}
+
+/** ワイヤーフレーム(画面構成+画面遷移図)をMarkdownに変換する。 */
+export function wireframeToMarkdown(content: WireframeContent): string {
+  const screenParts = content.screens.map((screen) => {
+    const lines = screen.elements.map((el) => elementToMarkdown(el));
+    return `### ${screen.name}\n${lines.join("\n")}`;
+  });
+
+  return [...screenParts, "### 画面遷移図", "```mermaid", content.transitionsMermaid, "```"].join("\n\n");
 }

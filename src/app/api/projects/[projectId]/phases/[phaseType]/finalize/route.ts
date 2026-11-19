@@ -1,12 +1,14 @@
 import { NextResponse } from "next/server";
 import { zodOutputFormat } from "@anthropic-ai/sdk/helpers/zod";
 import type { PhaseType } from "@/generated/prisma/client";
+import { Prisma } from "@/generated/prisma/client";
 import { prisma } from "@/lib/prisma";
 import { requireUser } from "@/lib/session";
 import { loadProjectWithPhases, isPhaseUnlocked } from "@/lib/phaseGuard";
 import { buildHearingSystemPrompt, getPhaseConfig } from "@/lib/phases";
 import { anthropic, CLAUDE_MODEL } from "@/lib/claude";
 import { StructuredListSchema } from "@/lib/schemas/structuredList";
+import { WireframeContentSchema } from "@/lib/schemas/wireframe";
 
 export async function POST(
   _request: Request,
@@ -28,9 +30,8 @@ export async function POST(
   const phase = project.phases.find((p) => p.type === targetType)!;
   const config = getPhaseConfig(targetType);
 
-  // 構造化リスト形式のフェーズ(企画・要件定義・機能設計・詳細設計・テスト設計)のみ対応。
-  // 画面設計(WIREFRAME)・DB設計(ER_DIAGRAM)・実装TODO(CHECKLIST)はM3以降で別途対応する。
-  if (config.format !== "STRUCTURED_LIST") {
+  // DB設計(ER_DIAGRAM)・実装TODO(CHECKLIST)はM3以降で別途対応する。
+  if (config.format !== "STRUCTURED_LIST" && config.format !== "WIREFRAME") {
     return NextResponse.json({ error: "このフェーズのfinalizeは未対応です。" }, { status: 501 });
   }
 
@@ -43,11 +44,14 @@ export async function POST(
     return NextResponse.json({ error: "まだヒアリングが行われていません。" }, { status: 400 });
   }
 
+  const outputFormat =
+    config.format === "WIREFRAME" ? zodOutputFormat(WireframeContentSchema) : zodOutputFormat(StructuredListSchema);
+
   const message = await anthropic.messages.parse({
     model: CLAUDE_MODEL,
     max_tokens: 4096,
     system: buildHearingSystemPrompt(targetType),
-    output_config: { format: zodOutputFormat(StructuredListSchema) },
+    output_config: { format: outputFormat },
     messages: [
       ...history.map((m) => ({
         role: (m.role === "USER" ? "user" : "assistant") as "user" | "assistant",
@@ -57,12 +61,21 @@ export async function POST(
     ],
   });
 
-  const content = message.parsed_output;
+  let content: Prisma.InputJsonValue | undefined = message.parsed_output as Prisma.InputJsonValue | undefined;
   if (!content) {
     return NextResponse.json({ error: "成果物の生成に失敗しました。" }, { status: 502 });
   }
 
   const existingDeliverable = await prisma.deliverable.findUnique({ where: { phaseId: phase.id } });
+
+  // WIREFRAMEの再確定では、デザインイメージ(designImages)はテキストヒアリングとは別管理のため、
+  // 既存のものをそのまま引き継ぐ(再確定で消えないようにする)。
+  if (config.format === "WIREFRAME" && existingDeliverable) {
+    const existingContent = existingDeliverable.content as { designImages?: unknown };
+    if (existingContent.designImages) {
+      content = { ...(content as object), designImages: existingContent.designImages };
+    }
+  }
 
   await prisma.$transaction(async (tx) => {
     await tx.deliverable.upsert({
