@@ -183,7 +183,7 @@ export function PhaseChatClient({
   }
 
   return (
-    <div className="mx-auto grid max-w-5xl grid-cols-1 gap-6 md:grid-cols-2">
+    <div className="grid grid-cols-1 md:grid-cols-2">
       <div className="flex flex-col rounded-lg border border-gray-200 bg-white">
         <div className="flex items-center justify-between border-b border-gray-200 px-4 py-3">
           <h1 className="text-sm font-semibold text-gray-900">{phaseLabel}フェーズ</h1>

@@ -1,4 +1,5 @@
 import { redirect, notFound } from "next/navigation";
+import Link from "next/link";
 import { requireUser } from "@/lib/session";
 import { prisma } from "@/lib/prisma";
 import { loadProjectWithPhases, isPhaseUnlocked, findEarliestIncompletePhase } from "@/lib/phaseGuard";
@@ -31,7 +32,10 @@ export default async function PhasePage(props: PageProps<"/projects/[projectId]/
   const config = getPhaseConfig(targetType);
 
   return (
-    <div className="px-8 py-6">
+    <div className="py-6">
+      <Link href={`/projects/${projectId}`} className="mb-3 inline-block text-sm text-gray-500 hover:text-gray-700">
+        ← {project.title}
+      </Link>
       <div className="mb-4 rounded-lg border border-gray-200 bg-white p-3">
         <PhaseStepper projectId={projectId} phases={project.phases} currentType={phaseType} />
       </div>
