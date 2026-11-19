@@ -15,7 +15,19 @@ export function MermaidDiagram({ source }: { source: string }) {
       setError(null);
       try {
         const mermaid = (await import("mermaid")).default;
-        mermaid.initialize({ startOnLoad: false });
+        mermaid.initialize({
+          startOnLoad: false,
+          theme: "base",
+          themeVariables: {
+            // アプリの配色(インディゴ系)に合わせる。デフォルトのピンク系テーマを上書き。
+            primaryColor: "#eef2ff", // brand-50
+            primaryBorderColor: "#4f46e5", // brand-600
+            primaryTextColor: "#1e1b4b",
+            lineColor: "#6b7280", // gray-500
+            secondaryColor: "#eef2ff",
+            tertiaryColor: "#ffffff",
+          },
+        });
         const id = `mermaid-${idCounter++}`;
         const { svg } = await mermaid.render(id, source);
         if (!cancelled && containerRef.current) {
