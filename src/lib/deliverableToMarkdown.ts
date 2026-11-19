@@ -41,3 +41,21 @@ export function wireframeToMarkdown(content: WireframeContent): string {
 
   return [...screenParts, "### 画面遷移図", "```mermaid", content.transitionsMermaid, "```"].join("\n\n");
 }
+
+type ErDiagramContent = {
+  mermaid: string;
+  entities: { name: string; fields: { name: string; type: string; isPK: boolean; isFK: boolean }[] }[];
+};
+
+/** ER図(エンティティ一覧+Mermaidソース)をMarkdownに変換する。 */
+export function erDiagramToMarkdown(content: ErDiagramContent): string {
+  const entityParts = content.entities.map((entity) => {
+    const lines = entity.fields.map((f) => {
+      const tags = [f.isPK && "PK", f.isFK && "FK"].filter(Boolean).join(", ");
+      return `- ${f.name}: ${f.type}${tags ? ` (${tags})` : ""}`;
+    });
+    return `### ${entity.name}\n${lines.join("\n")}`;
+  });
+
+  return [...entityParts, "### ER図", "```mermaid", content.mermaid, "```"].join("\n\n");
+}

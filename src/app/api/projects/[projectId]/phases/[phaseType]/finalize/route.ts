@@ -9,6 +9,7 @@ import { buildHearingSystemPrompt, getPhaseConfig } from "@/lib/phases";
 import { anthropic, CLAUDE_MODEL } from "@/lib/claude";
 import { StructuredListSchema } from "@/lib/schemas/structuredList";
 import { WireframeContentSchema } from "@/lib/schemas/wireframe";
+import { ErDiagramContentSchema } from "@/lib/schemas/erDiagram";
 
 export async function POST(
   _request: Request,
@@ -30,8 +31,8 @@ export async function POST(
   const phase = project.phases.find((p) => p.type === targetType)!;
   const config = getPhaseConfig(targetType);
 
-  // DB設計(ER_DIAGRAM)・実装TODO(CHECKLIST)はM3以降で別途対応する。
-  if (config.format !== "STRUCTURED_LIST" && config.format !== "WIREFRAME") {
+  // 実装TODO(CHECKLIST)は別途対応する(チャットを経由せず自動生成するため)。
+  if (config.format === "CHECKLIST") {
     return NextResponse.json({ error: "このフェーズのfinalizeは未対応です。" }, { status: 501 });
   }
 
@@ -45,7 +46,11 @@ export async function POST(
   }
 
   const outputFormat =
-    config.format === "WIREFRAME" ? zodOutputFormat(WireframeContentSchema) : zodOutputFormat(StructuredListSchema);
+    config.format === "WIREFRAME"
+      ? zodOutputFormat(WireframeContentSchema)
+      : config.format === "ER_DIAGRAM"
+        ? zodOutputFormat(ErDiagramContentSchema)
+        : zodOutputFormat(StructuredListSchema);
 
   const message = await anthropic.messages.parse({
     model: CLAUDE_MODEL,

@@ -2,7 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useState } from "react";
-import { structuredListToMarkdown, wireframeToMarkdown } from "@/lib/deliverableToMarkdown";
+import { structuredListToMarkdown, wireframeToMarkdown, erDiagramToMarkdown } from "@/lib/deliverableToMarkdown";
 import { WireframeView } from "@/components/WireframeView";
 import { MermaidDiagram } from "@/components/MermaidDiagram";
 import type { WireframeElement } from "@/lib/schemas/wireframe";
@@ -16,6 +16,11 @@ type WireframeContent = {
   transitionsMermaid: string;
   designImages?: DesignImage[];
 };
+type ErDiagramContent = {
+  mermaid: string;
+  entities: { name: string; fields: { name: string; type: string; isPK: boolean; isFK: boolean }[] }[];
+};
+type DeliverableContent = StructuredListContent | WireframeContent | ErDiagramContent;
 
 export function DeliverablePanel({
   projectId,
@@ -27,8 +32,8 @@ export function DeliverablePanel({
   projectId: string;
   phaseType: string;
   format: DeliverableFormat;
-  deliverable: StructuredListContent | WireframeContent | null;
-  onSaved: (content: StructuredListContent | WireframeContent) => void;
+  deliverable: DeliverableContent | null;
+  onSaved: (content: DeliverableContent) => void;
 }) {
   const router = useRouter();
   const [view, setView] = useState<"structured" | "markdown">("structured");
@@ -48,7 +53,7 @@ export function DeliverablePanel({
   const [designFeedback, setDesignFeedback] = useState("");
   const [generatingImage, setGeneratingImage] = useState(false);
 
-  async function patch(content: StructuredListContent | WireframeContent) {
+  async function patch(content: DeliverableContent) {
     setSaving(true);
     const res = await fetch(`/api/projects/${projectId}/phases/${phaseType}/deliverable`, {
       method: "PATCH",
@@ -70,6 +75,7 @@ export function DeliverablePanel({
     if (!deliverable) return "";
     if (format === "STRUCTURED_LIST") return structuredListToMarkdown(deliverable as StructuredListContent);
     if (format === "WIREFRAME") return wireframeToMarkdown(deliverable as WireframeContent);
+    if (format === "ER_DIAGRAM") return erDiagramToMarkdown(deliverable as ErDiagramContent);
     return "";
   }
 
@@ -109,17 +115,23 @@ export function DeliverablePanel({
     onSaved({ items: [...content.items, newItem] });
   }
 
-  // --- WIREFRAME handlers ---
+  // --- WIREFRAME(画面遷移図)/ER_DIAGRAM 共通のMermaid編集ハンドラ ---
   function startEditMermaid() {
-    const content = deliverable as WireframeContent;
-    setMermaidDraft(content?.transitionsMermaid ?? "");
+    if (format === "WIREFRAME") {
+      setMermaidDraft((deliverable as WireframeContent)?.transitionsMermaid ?? "");
+    } else if (format === "ER_DIAGRAM") {
+      setMermaidDraft((deliverable as ErDiagramContent)?.mermaid ?? "");
+    }
     setEditingMermaid(true);
   }
 
   function handleSaveMermaid() {
-    const content = deliverable as WireframeContent;
-    if (!content) return;
-    patch({ ...content, transitionsMermaid: mermaidDraft });
+    if (!deliverable) return;
+    if (format === "WIREFRAME") {
+      patch({ ...(deliverable as WireframeContent), transitionsMermaid: mermaidDraft });
+    } else if (format === "ER_DIAGRAM") {
+      patch({ ...(deliverable as ErDiagramContent), mermaid: mermaidDraft });
+    }
     setEditingMermaid(false);
   }
 
@@ -348,6 +360,63 @@ export function DeliverablePanel({
                 </button>
               </div>
             )}
+          </div>
+        </div>
+      )}
+
+      {view === "structured" && format === "ER_DIAGRAM" && (
+        <div className="space-y-4">
+          {editingMermaid ? (
+            <div>
+              <textarea
+                value={mermaidDraft}
+                onChange={(e) => setMermaidDraft(e.target.value)}
+                rows={10}
+                className="w-full rounded-md border border-gray-300 p-2 font-mono text-xs"
+              />
+              <div className="mt-2 flex gap-2">
+                <button
+                  onClick={handleSaveMermaid}
+                  disabled={saving}
+                  className="rounded-md bg-gray-900 px-3 py-1 text-xs text-white disabled:opacity-50"
+                >
+                  再レンダリング
+                </button>
+                <button
+                  onClick={() => setEditingMermaid(false)}
+                  className="rounded-md border border-gray-300 px-3 py-1 text-xs text-gray-700"
+                >
+                  取消
+                </button>
+              </div>
+            </div>
+          ) : (
+            <div>
+              <MermaidDiagram source={(deliverable as ErDiagramContent).mermaid} />
+              <button onClick={startEditMermaid} className="mt-2 text-xs text-gray-600 underline hover:text-gray-900">
+                Mermaidソースを編集
+              </button>
+            </div>
+          )}
+          <div className="space-y-3">
+            {(deliverable as ErDiagramContent).entities.map((entity) => (
+              <div key={entity.name}>
+                <h4 className="mb-1 text-xs font-semibold text-gray-700">{entity.name}</h4>
+                <table className="w-full text-left text-xs">
+                  <tbody>
+                    {entity.fields.map((field) => (
+                      <tr key={field.name} className="border-b border-gray-100">
+                        <td className="py-1 pr-2 font-mono text-gray-600">{field.name}</td>
+                        <td className="py-1 pr-2 text-gray-500">{field.type}</td>
+                        <td className="py-1 text-gray-500">
+                          {[field.isPK && "PK", field.isFK && "FK"].filter(Boolean).join(", ")}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            ))}
           </div>
         </div>
       )}

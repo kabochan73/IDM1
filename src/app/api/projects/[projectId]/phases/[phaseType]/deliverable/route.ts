@@ -6,6 +6,7 @@ import { loadProjectWithPhases, isPhaseUnlocked } from "@/lib/phaseGuard";
 import { getPhaseConfig } from "@/lib/phases";
 import { StructuredListSchema } from "@/lib/schemas/structuredList";
 import { WireframeContentSchema } from "@/lib/schemas/wireframe";
+import { ErDiagramContentSchema } from "@/lib/schemas/erDiagram";
 import type { Prisma } from "@/generated/prisma/client";
 
 export async function PATCH(request: Request, ctx: RouteContext<"/api/projects/[projectId]/phases/[phaseType]/deliverable">) {
@@ -30,12 +31,15 @@ export async function PATCH(request: Request, ctx: RouteContext<"/api/projects/[
   }
 
   const format = getPhaseConfig(targetType).format;
-  if (format !== "STRUCTURED_LIST" && format !== "WIREFRAME") {
+  if (format === "CHECKLIST") {
     return NextResponse.json({ error: "このフェーズの編集は未対応です。" }, { status: 501 });
   }
 
+  const schema =
+    format === "WIREFRAME" ? WireframeContentSchema : format === "ER_DIAGRAM" ? ErDiagramContentSchema : StructuredListSchema;
+
   const body = await request.json().catch(() => null);
-  const parsed = (format === "WIREFRAME" ? WireframeContentSchema : StructuredListSchema).safeParse(body);
+  const parsed = schema.safeParse(body);
   if (!parsed.success) {
     return NextResponse.json({ error: "入力内容が正しくありません。" }, { status: 400 });
   }
