@@ -1,4 +1,5 @@
 import { notFound } from "next/navigation";
+import Link from "next/link";
 import { requireUser } from "@/lib/session";
 import { prisma } from "@/lib/prisma";
 import { getPhaseConfig } from "@/lib/phases";
@@ -26,19 +27,29 @@ export default async function ProjectDetailPage(props: PageProps<"/projects/[pro
   return (
     <div className="mx-auto max-w-2xl px-4 py-10">
       <h1 className="mb-1 text-xl font-semibold text-gray-900">{project.title}</h1>
-      <p className="mb-6 text-sm text-gray-500">各フェーズのチャット画面はまもなく実装予定です。</p>
+      <p className="mb-6 text-sm text-gray-500">現在は企画フェーズのみ利用できます。</p>
 
       <ol className="space-y-2">
         {project.phases.map((phase) => {
           const config = getPhaseConfig(phase.type);
+          const reachable = phase.status !== "NOT_STARTED";
+          const label = (
+            <span className="text-sm text-gray-900">
+              {config.order}. {config.labelJa}
+            </span>
+          );
           return (
             <li
               key={phase.id}
               className="flex items-center justify-between rounded-md border border-gray-200 px-4 py-2"
             >
-              <span className="text-sm text-gray-900">
-                {config.order}. {config.labelJa}
-              </span>
+              {reachable ? (
+                <Link href={`/projects/${projectId}/phases/${phase.type.toLowerCase()}`} className="hover:underline">
+                  {label}
+                </Link>
+              ) : (
+                label
+              )}
               <span className="text-xs text-gray-500">{statusLabel[phase.status]}</span>
             </li>
           );
