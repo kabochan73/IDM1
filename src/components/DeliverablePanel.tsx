@@ -10,7 +10,12 @@ import type { DeliverableFormat } from "@/generated/prisma/client";
 
 type StructuredItem = { id: string; title: string; description: string; priority: string };
 type StructuredListContent = { items: StructuredItem[] };
-type WireframeContent = { screens: { name: string; elements: WireframeElement[] }[]; transitionsMermaid: string };
+type DesignImage = { screenName: string; imageBase64: string; prompt: string };
+type WireframeContent = {
+  screens: { name: string; elements: WireframeElement[] }[];
+  transitionsMermaid: string;
+  designImages?: DesignImage[];
+};
 
 export function DeliverablePanel({
   projectId,
@@ -37,6 +42,11 @@ export function DeliverablePanel({
   // WIREFRAME transition diagram editing state
   const [editingMermaid, setEditingMermaid] = useState(false);
   const [mermaidDraft, setMermaidDraft] = useState("");
+
+  // WIREFRAME screen tab + design image generation state
+  const [activeScreenIndex, setActiveScreenIndex] = useState(0);
+  const [designFeedback, setDesignFeedback] = useState("");
+  const [generatingImage, setGeneratingImage] = useState(false);
 
   async function patch(content: StructuredListContent | WireframeContent) {
     setSaving(true);
@@ -111,6 +121,29 @@ export function DeliverablePanel({
     if (!content) return;
     patch({ ...content, transitionsMermaid: mermaidDraft });
     setEditingMermaid(false);
+  }
+
+  async function handleGenerateImage() {
+    const content = deliverable as WireframeContent;
+    const screen = content.screens[activeScreenIndex];
+    if (!screen) return;
+
+    setGeneratingImage(true);
+    const res = await fetch(`/api/projects/${projectId}/phases/${phaseType}/design-image`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ screenName: screen.name, feedback: designFeedback || undefined }),
+    });
+    setGeneratingImage(false);
+
+    if (!res.ok) {
+      alert("画像生成に失敗しました。");
+      return;
+    }
+
+    const data = await res.json();
+    setDesignFeedback("");
+    onSaved({ ...content, designImages: data.designImages });
   }
 
   if (!deliverable) {
@@ -241,7 +274,46 @@ export function DeliverablePanel({
 
       {view === "structured" && format === "WIREFRAME" && (
         <div className="space-y-4">
-          <WireframeView screens={(deliverable as WireframeContent).screens} />
+          <WireframeView
+            screens={(deliverable as WireframeContent).screens}
+            activeIndex={activeScreenIndex}
+            onActiveIndexChange={setActiveScreenIndex}
+          />
+          <div>
+            <h3 className="mb-2 text-xs font-semibold text-gray-500">デザインイメージ(参考画像・任意)</h3>
+            {(() => {
+              const content = deliverable as WireframeContent;
+              const screen = content.screens[activeScreenIndex];
+              const image = content.designImages?.find((img) => img.screenName === screen?.name);
+              return (
+                <div className="space-y-2">
+                  {image ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={`data:image/png;base64,${image.imageBase64}`}
+                      alt={`${screen?.name}のデザインイメージ`}
+                      className="max-w-xs rounded-md border border-gray-200"
+                    />
+                  ) : (
+                    <p className="text-xs text-gray-400">まだ生成していません。</p>
+                  )}
+                  <input
+                    value={designFeedback}
+                    onChange={(e) => setDesignFeedback(e.target.value)}
+                    placeholder="見た目の要望(例: もっと明るい雰囲気で)"
+                    className="w-full rounded-md border border-gray-300 px-2 py-1 text-xs"
+                  />
+                  <button
+                    onClick={handleGenerateImage}
+                    disabled={generatingImage}
+                    className="rounded-md border border-gray-300 px-3 py-1.5 text-xs text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+                  >
+                    {generatingImage ? "生成中..." : image ? "ブラッシュアップ" : "生成する"}
+                  </button>
+                </div>
+              );
+            })()}
+          </div>
           <div>
             <h3 className="mb-2 text-xs font-semibold text-gray-500">画面遷移図</h3>
             {editingMermaid ? (

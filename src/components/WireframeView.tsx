@@ -1,6 +1,5 @@
 "use client";
 
-import { useState } from "react";
 import type { WireframeElement, LeafElement } from "@/lib/schemas/wireframe";
 
 const TYPE_LABEL: Record<LeafElement["type"], string> = {
@@ -46,13 +45,20 @@ function ElementBox({ element }: { element: WireframeElement }) {
   );
 }
 
-export function WireframeView({ screens }: { screens: { name: string; elements: WireframeElement[] }[] }) {
-  const [activeIndex, setActiveIndex] = useState(0);
-  const active = screens[activeIndex];
-
+export function WireframeView({
+  screens,
+  activeIndex,
+  onActiveIndexChange,
+}: {
+  screens: { name: string; elements: WireframeElement[] }[];
+  activeIndex: number;
+  onActiveIndexChange: (index: number) => void;
+}) {
   if (screens.length === 0) {
     return <p className="text-sm text-gray-400">まだ画面が登録されていません。</p>;
   }
+
+  const active = screens[activeIndex] ?? screens[0];
 
   return (
     <div>
@@ -60,7 +66,7 @@ export function WireframeView({ screens }: { screens: { name: string; elements: 
         {screens.map((screen, i) => (
           <button
             key={screen.name + i}
-            onClick={() => setActiveIndex(i)}
+            onClick={() => onActiveIndexChange(i)}
             className={`rounded-md px-2.5 py-1 text-xs ${
               i === activeIndex ? "bg-brand-600 text-white" : "bg-gray-100 text-gray-600 hover:bg-gray-200"
             }`}

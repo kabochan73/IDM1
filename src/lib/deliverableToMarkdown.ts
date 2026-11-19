@@ -27,6 +27,11 @@ function elementToMarkdown(element: WireframeElement): string {
   return [line, ...children].join("\n");
 }
 
+/** 1画面分の要素構成をテキスト化する(画像生成プロンプトへの合成に使う)。 */
+export function screenElementsToText(elements: WireframeElement[]): string {
+  return elements.map((el) => elementToMarkdown(el)).join("\n");
+}
+
 /** ワイヤーフレーム(画面構成+画面遷移図)をMarkdownに変換する。 */
 export function wireframeToMarkdown(content: WireframeContent): string {
   const screenParts = content.screens.map((screen) => {
