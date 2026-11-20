@@ -1,4 +1,5 @@
 import { notFound } from "next/navigation";
+import Link from "next/link";
 import { requireUser } from "@/lib/session";
 import { prisma } from "@/lib/prisma";
 import { PhaseStepper } from "@/components/PhaseStepper";
@@ -18,7 +19,12 @@ export default async function ProjectDetailPage(props: PageProps<"/projects/[pro
 
   return (
     <div className="mx-auto max-w-4xl px-8 py-10">
-      <h1 className="mb-1 text-lg font-semibold text-gray-900">{project.title}</h1>
+      <div className="mb-1 flex items-center justify-between">
+        <h1 className="text-lg font-semibold text-gray-900">{project.title}</h1>
+        <Link href={`/projects/${projectId}/progress`} className="text-sm text-brand-600 hover:text-brand-700">
+          進捗ダッシュボード →
+        </Link>
+      </div>
       <p className="mb-6 text-sm text-gray-500">フェーズをクリックして進めてください。</p>
 
       <div className="rounded-lg border border-gray-200 bg-white p-4">
