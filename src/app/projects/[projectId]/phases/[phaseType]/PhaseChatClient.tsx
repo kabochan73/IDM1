@@ -250,7 +250,10 @@ export function PhaseChatClient({
           phaseType={phaseType}
           format={deliverableFormat}
           deliverable={deliverable as Parameters<typeof DeliverablePanel>[0]["deliverable"]}
-          onSaved={(content) => setDeliverable(content)}
+          onSaved={(content) => {
+            setDeliverable(content);
+            if (isChecklist) setStatus("DONE");
+          }}
         />
       </div>
     </div>

@@ -110,19 +110,24 @@ export async function POST(
   });
 
   // テスト設計の確定直後に、実装TODOチェックリストをチャットなしで自動生成する(FUNC-030)。
+  // ここで失敗しても、既に確定済みのテスト設計自体は成功として扱う(生成は後からでも「生成する」ボタンでリトライできる)。
   if (targetType === "TEST_DESIGN") {
-    const checklistPhase = project.phases.find((p) => p.type === "IMPLEMENTATION_CHECKLIST");
-    if (checklistPhase) {
-      const generatedItems = await generateChecklistItems(projectId);
-      const checklistContent: Prisma.InputJsonValue = {
-        items: generatedItems.map((item) => ({ ...item, done: false })),
-      };
-      await prisma.deliverable.upsert({
-        where: { phaseId: checklistPhase.id },
-        update: { content: checklistContent, version: { increment: 1 } },
-        create: { phaseId: checklistPhase.id, format: "CHECKLIST", content: checklistContent, version: 1, isFinal: true },
-      });
-      await prisma.phase.update({ where: { id: checklistPhase.id }, data: { status: "DONE" } });
+    try {
+      const checklistPhase = project.phases.find((p) => p.type === "IMPLEMENTATION_CHECKLIST");
+      if (checklistPhase) {
+        const generatedItems = await generateChecklistItems(projectId);
+        const checklistContent: Prisma.InputJsonValue = {
+          items: generatedItems.map((item) => ({ ...item, done: false })),
+        };
+        await prisma.deliverable.upsert({
+          where: { phaseId: checklistPhase.id },
+          update: { content: checklistContent, version: { increment: 1 } },
+          create: { phaseId: checklistPhase.id, format: "CHECKLIST", content: checklistContent, version: 1, isFinal: true },
+        });
+        await prisma.phase.update({ where: { id: checklistPhase.id }, data: { status: "DONE" } });
+      }
+    } catch (error) {
+      console.error("checklist auto-generation failed:", error);
     }
   }
 

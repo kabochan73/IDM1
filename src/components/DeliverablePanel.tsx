@@ -60,6 +60,9 @@ export function DeliverablePanel({
   const [designFeedback, setDesignFeedback] = useState("");
   const [generatingImage, setGeneratingImage] = useState(false);
 
+  // CHECKLIST generation state (未生成/リトライ用)
+  const [generatingChecklist, setGeneratingChecklist] = useState(false);
+
   async function patch(content: DeliverableContent) {
     setSaving(true);
     const res = await fetch(`/api/projects/${projectId}/phases/${phaseType}/deliverable`, {
@@ -173,7 +176,37 @@ export function DeliverablePanel({
     patch({ items: content.items.map((i) => (i.id === id ? { ...i, done: !i.done } : i)) });
   }
 
+  async function handleGenerateChecklist() {
+    setGeneratingChecklist(true);
+    const res = await fetch(`/api/projects/${projectId}/phases/${phaseType}/generate-checklist`, { method: "POST" });
+    setGeneratingChecklist(false);
+
+    if (!res.ok) {
+      const data = await res.json().catch(() => null);
+      alert(data?.error ?? "生成に失敗しました。");
+      return;
+    }
+
+    const data = await res.json();
+    onSaved(data.content);
+    router.refresh();
+  }
+
   if (!deliverable) {
+    if (format === "CHECKLIST") {
+      return (
+        <div>
+          <p className="mb-2 text-sm text-gray-400">まだ生成されていません。</p>
+          <button
+            onClick={handleGenerateChecklist}
+            disabled={generatingChecklist}
+            className="rounded-md bg-brand-600 px-3 py-1.5 text-sm text-white hover:bg-brand-700 disabled:opacity-50"
+          >
+            {generatingChecklist ? "生成中..." : "生成する"}
+          </button>
+        </div>
+      );
+    }
     return <p className="text-sm text-gray-400">まだ確定していません。</p>;
   }
 
