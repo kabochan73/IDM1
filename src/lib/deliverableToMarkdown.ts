@@ -59,3 +59,17 @@ export function erDiagramToMarkdown(content: ErDiagramContent): string {
 
   return [...entityParts, "### ER図", "```mermaid", content.mermaid, "```"].join("\n\n");
 }
+
+type ChecklistContent = {
+  items: { id: string; label: string; relatedFunctionalItem?: string; done: boolean }[];
+};
+
+/** 実装TODOチェックリストをMarkdownに変換する。 */
+export function checklistToMarkdown(content: ChecklistContent): string {
+  return content.items
+    .map((item) => {
+      const related = item.relatedFunctionalItem ? ` (関連: ${item.relatedFunctionalItem})` : "";
+      return `- [${item.done ? "x" : " "}] [${item.id}] ${item.label}${related}`;
+    })
+    .join("\n");
+}

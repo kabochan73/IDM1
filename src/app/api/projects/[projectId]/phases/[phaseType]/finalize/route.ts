@@ -10,6 +10,7 @@ import { anthropic, CLAUDE_MODEL } from "@/lib/claude";
 import { StructuredListSchema } from "@/lib/schemas/structuredList";
 import { WireframeContentSchema } from "@/lib/schemas/wireframe";
 import { ErDiagramContentSchema } from "@/lib/schemas/erDiagram";
+import { generateChecklistItems } from "@/lib/checklistGenerator";
 
 export async function POST(
   _request: Request,
@@ -107,6 +108,23 @@ export async function POST(
       });
     }
   });
+
+  // テスト設計の確定直後に、実装TODOチェックリストをチャットなしで自動生成する(FUNC-030)。
+  if (targetType === "TEST_DESIGN") {
+    const checklistPhase = project.phases.find((p) => p.type === "IMPLEMENTATION_CHECKLIST");
+    if (checklistPhase) {
+      const generatedItems = await generateChecklistItems(projectId);
+      const checklistContent: Prisma.InputJsonValue = {
+        items: generatedItems.map((item) => ({ ...item, done: false })),
+      };
+      await prisma.deliverable.upsert({
+        where: { phaseId: checklistPhase.id },
+        update: { content: checklistContent, version: { increment: 1 } },
+        create: { phaseId: checklistPhase.id, format: "CHECKLIST", content: checklistContent, version: 1, isFinal: true },
+      });
+      await prisma.phase.update({ where: { id: checklistPhase.id }, data: { status: "DONE" } });
+    }
+  }
 
   return NextResponse.json({ ok: true, content });
 }

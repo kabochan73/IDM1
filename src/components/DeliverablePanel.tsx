@@ -2,7 +2,12 @@
 
 import { useRouter } from "next/navigation";
 import { useState } from "react";
-import { structuredListToMarkdown, wireframeToMarkdown, erDiagramToMarkdown } from "@/lib/deliverableToMarkdown";
+import {
+  structuredListToMarkdown,
+  wireframeToMarkdown,
+  erDiagramToMarkdown,
+  checklistToMarkdown,
+} from "@/lib/deliverableToMarkdown";
 import { WireframeView } from "@/components/WireframeView";
 import { MermaidDiagram } from "@/components/MermaidDiagram";
 import type { WireframeElement } from "@/lib/schemas/wireframe";
@@ -20,7 +25,9 @@ type ErDiagramContent = {
   mermaid: string;
   entities: { name: string; fields: { name: string; type: string; isPK: boolean; isFK: boolean }[] }[];
 };
-type DeliverableContent = StructuredListContent | WireframeContent | ErDiagramContent;
+type ChecklistItem = { id: string; label: string; relatedFunctionalItem?: string; done: boolean };
+type ChecklistContent = { items: ChecklistItem[] };
+type DeliverableContent = StructuredListContent | WireframeContent | ErDiagramContent | ChecklistContent;
 
 export function DeliverablePanel({
   projectId,
@@ -76,6 +83,7 @@ export function DeliverablePanel({
     if (format === "STRUCTURED_LIST") return structuredListToMarkdown(deliverable as StructuredListContent);
     if (format === "WIREFRAME") return wireframeToMarkdown(deliverable as WireframeContent);
     if (format === "ER_DIAGRAM") return erDiagramToMarkdown(deliverable as ErDiagramContent);
+    if (format === "CHECKLIST") return checklistToMarkdown(deliverable as ChecklistContent);
     return "";
   }
 
@@ -156,6 +164,13 @@ export function DeliverablePanel({
     const data = await res.json();
     setDesignFeedback("");
     onSaved({ ...content, designImages: data.designImages });
+  }
+
+  // --- CHECKLIST handlers ---
+  function handleToggleDone(id: string) {
+    const content = deliverable as ChecklistContent;
+    if (!content) return;
+    patch({ items: content.items.map((i) => (i.id === id ? { ...i, done: !i.done } : i)) });
   }
 
   if (!deliverable) {
@@ -419,6 +434,31 @@ export function DeliverablePanel({
             ))}
           </div>
         </div>
+      )}
+
+      {view === "structured" && format === "CHECKLIST" && (
+        <ul className="space-y-2">
+          {(deliverable as ChecklistContent).items.map((item) => (
+            <li key={item.id} className="flex items-start gap-2 rounded-md border border-gray-100 px-2 py-1.5 text-sm">
+              <input
+                type="checkbox"
+                checked={item.done}
+                onChange={() => handleToggleDone(item.id)}
+                disabled={saving}
+                className="mt-0.5"
+              />
+              <div>
+                <span className={item.done ? "text-gray-400 line-through" : "text-gray-900"}>{item.label}</span>
+                {item.relatedFunctionalItem && (
+                  <span className="ml-2 font-mono text-xs text-gray-400">{item.relatedFunctionalItem}</span>
+                )}
+              </div>
+            </li>
+          ))}
+          {(deliverable as ChecklistContent).items.length === 0 && (
+            <p className="text-sm text-gray-400">TODO項目がありません。</p>
+          )}
+        </ul>
       )}
     </div>
   );

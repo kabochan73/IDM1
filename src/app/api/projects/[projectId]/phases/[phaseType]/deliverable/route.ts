@@ -7,6 +7,7 @@ import { getPhaseConfig } from "@/lib/phases";
 import { StructuredListSchema } from "@/lib/schemas/structuredList";
 import { WireframeContentSchema } from "@/lib/schemas/wireframe";
 import { ErDiagramContentSchema } from "@/lib/schemas/erDiagram";
+import { ChecklistContentSchema } from "@/lib/schemas/checklist";
 import type { Prisma } from "@/generated/prisma/client";
 
 export async function PATCH(request: Request, ctx: RouteContext<"/api/projects/[projectId]/phases/[phaseType]/deliverable">) {
@@ -31,12 +32,15 @@ export async function PATCH(request: Request, ctx: RouteContext<"/api/projects/[
   }
 
   const format = getPhaseConfig(targetType).format;
-  if (format === "CHECKLIST") {
-    return NextResponse.json({ error: "このフェーズの編集は未対応です。" }, { status: 501 });
-  }
 
   const schema =
-    format === "WIREFRAME" ? WireframeContentSchema : format === "ER_DIAGRAM" ? ErDiagramContentSchema : StructuredListSchema;
+    format === "WIREFRAME"
+      ? WireframeContentSchema
+      : format === "ER_DIAGRAM"
+        ? ErDiagramContentSchema
+        : format === "CHECKLIST"
+          ? ChecklistContentSchema
+          : StructuredListSchema;
 
   const body = await request.json().catch(() => null);
   const parsed = schema.safeParse(body);
@@ -61,7 +65,7 @@ export async function PATCH(request: Request, ctx: RouteContext<"/api/projects/[
 
     // 直接編集も再確定と同じ扱い: 確定済み(DONE/NEEDS_REVIEW)の内容が変わった場合、
     // それより後ろで既にDONEだったフェーズ(=まだ未着手のものは対象外)をNEEDS_REVIEWにする。
-    // 実装TODOチェックリスト(CHECKLISTのdone切替)はこのAPIを通らないため対象外になる。
+    // 実装TODOチェックリスト(CHECKLISTのdone切替)は最後のフェーズのため、下流が無く実質対象外になる。
     if (phase.status === "DONE" || phase.status === "NEEDS_REVIEW") {
       const downstreamDonePhaseIds = project.phases
         .filter((p) => p.order > phase.order && p.status === "DONE")
