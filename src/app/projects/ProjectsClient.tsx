@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useState, type FormEvent } from "react";
+import { useState } from "react";
 import Link from "next/link";
 
 type ProjectSummary = {
@@ -16,43 +16,13 @@ type ProjectSummary = {
 export function ProjectsClient({ initialProjects }: { initialProjects: ProjectSummary[] }) {
   const router = useRouter();
   const [projects, setProjects] = useState(initialProjects);
-  const [title, setTitle] = useState("");
-  const [pending, setPending] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [prevInitialProjects, setPrevInitialProjects] = useState(initialProjects);
 
-  async function handleCreate(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    if (!title.trim()) return;
-    setPending(true);
-    setError(null);
-
-    const res = await fetch("/api/projects", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ title }),
-    });
-
-    setPending(false);
-
-    if (!res.ok) {
-      setError("プロジェクトの作成に失敗しました。");
-      return;
-    }
-
-    setTitle("");
-    router.refresh();
-    const data = await res.json();
-    setProjects((prev) => [
-      {
-        id: data.project.id,
-        title: data.project.title,
-        description: data.project.description,
-        doneCount: 0,
-        totalCount: 8,
-        currentPhaseLabel: "進行中: 企画",
-      },
-      ...prev,
-    ]);
+  // サイドバーのモーダルで新規作成された場合など、サーバー側のデータ(props)が更新されたら追従する。
+  // (レンダー中に同期することで、useEffectによる余分な再描画を避ける)
+  if (initialProjects !== prevInitialProjects) {
+    setPrevInitialProjects(initialProjects);
+    setProjects(initialProjects);
   }
 
   async function handleDelete(id: string) {
@@ -60,6 +30,7 @@ export function ProjectsClient({ initialProjects }: { initialProjects: ProjectSu
     const res = await fetch(`/api/projects/${id}`, { method: "DELETE" });
     if (res.ok) {
       setProjects((prev) => prev.filter((p) => p.id !== id));
+      router.refresh();
     }
   }
 
@@ -68,23 +39,6 @@ export function ProjectsClient({ initialProjects }: { initialProjects: ProjectSu
       <div className="mb-6 flex items-center justify-between">
         <h1 className="text-lg font-semibold text-gray-900">プロジェクト</h1>
       </div>
-
-      <form onSubmit={handleCreate} className="mb-6 flex gap-2 rounded-lg border border-gray-200 bg-white p-4">
-        <input
-          value={title}
-          onChange={(e) => setTitle(e.target.value)}
-          placeholder="新しいプロジェクトのタイトル"
-          className="flex-1 rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-brand-600 focus:outline-none"
-        />
-        <button
-          type="submit"
-          disabled={pending}
-          className="rounded-md bg-brand-600 px-4 py-2 text-sm font-medium text-white hover:bg-brand-700 disabled:opacity-50"
-        >
-          + 新規プロジェクト
-        </button>
-      </form>
-      {error && <p className="mb-4 text-sm text-red-600">{error}</p>}
 
       <ul className="grid gap-3 sm:grid-cols-2">
         {projects.map((project) => (
@@ -117,7 +71,7 @@ export function ProjectsClient({ initialProjects }: { initialProjects: ProjectSu
             </div>
           </li>
         ))}
-        {projects.length === 0 && <p className="text-sm text-gray-500">まだプロジェクトがありません。</p>}
+        {projects.length === 0 && <p className="text-sm text-gray-500">まだプロジェクトがありません。サイドバーの「+ 新規プロジェクト」から作成できます。</p>}
       </ul>
     </div>
   );
