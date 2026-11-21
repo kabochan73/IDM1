@@ -13,8 +13,14 @@ import { MermaidDiagram } from "@/components/MermaidDiagram";
 import type { WireframeElement } from "@/lib/schemas/wireframe";
 import type { DeliverableFormat } from "@/generated/prisma/client";
 
-type StructuredItem = { id: string; title: string; description: string; priority: string };
+type StructuredItem = { id: string; title: string; description: string; priority: string; relatedIds?: string[] };
 type StructuredListContent = { items: StructuredItem[] };
+
+const PRIORITY_BADGE_CLASS: Record<string, string> = {
+  Must: "bg-red-50 text-red-700",
+  Should: "bg-amber-50 text-amber-700",
+  Could: "bg-gray-100 text-gray-600",
+};
 type DesignImage = { screenName: string; imageBase64: string; prompt: string };
 type WireframeContent = {
   screens: { name: string; elements: WireframeElement[] }[];
@@ -245,84 +251,79 @@ export function DeliverablePanel({
 
       {view === "structured" && format === "STRUCTURED_LIST" && (
         <>
-          <table className="w-full text-left text-sm">
-            <thead>
-              <tr className="border-b border-gray-200 text-xs text-gray-500">
-                <th className="py-1 pr-2">ID</th>
-                <th className="py-1 pr-2">タイトル</th>
-                <th className="py-1 pr-2">説明</th>
-                <th className="py-1 pr-2">優先度</th>
-                <th className="py-1"></th>
-              </tr>
-            </thead>
-            <tbody>
-              {(deliverable as StructuredListContent).items.map((item) =>
-                editingId === item.id && editDraft ? (
-                  <tr key={item.id} className="border-b border-gray-100 align-top">
-                    <td className="py-2 pr-2 font-mono text-xs text-gray-500">{item.id}</td>
-                    <td className="py-2 pr-2">
-                      <input
-                        value={editDraft.title}
-                        onChange={(e) => setEditDraft({ ...editDraft, title: e.target.value })}
-                        className="w-full rounded border border-gray-300 px-1 py-0.5 text-sm"
-                      />
-                    </td>
-                    <td className="py-2 pr-2">
-                      <input
-                        value={editDraft.description}
-                        onChange={(e) => setEditDraft({ ...editDraft, description: e.target.value })}
-                        className="w-full rounded border border-gray-300 px-1 py-0.5 text-sm"
-                      />
-                    </td>
-                    <td className="py-2 pr-2">
-                      <select
-                        value={editDraft.priority}
-                        onChange={(e) => setEditDraft({ ...editDraft, priority: e.target.value })}
-                        className="rounded border border-gray-300 px-1 py-0.5 text-sm"
-                      >
-                        <option value="Must">Must</option>
-                        <option value="Should">Should</option>
-                        <option value="Could">Could</option>
-                      </select>
-                    </td>
-                    <td className="py-2 whitespace-nowrap">
-                      <button
-                        onClick={handleSaveEdit}
-                        disabled={saving}
-                        className="mr-2 text-xs text-gray-900 underline disabled:opacity-50"
-                      >
-                        保存
-                      </button>
-                      <button
-                        onClick={() => {
-                          setEditingId(null);
-                          setEditDraft(null);
-                        }}
-                        className="text-xs text-gray-500"
-                      >
-                        取消
-                      </button>
-                    </td>
-                  </tr>
-                ) : (
-                  <tr key={item.id} className="border-b border-gray-100 align-top">
-                    <td className="py-2 pr-2 font-mono text-xs text-gray-500">{item.id}</td>
-                    <td className="py-2 pr-2 font-medium text-gray-900">{item.title}</td>
-                    <td className="py-2 pr-2 text-gray-600">{item.description}</td>
-                    <td className="py-2 pr-2 text-gray-600">{item.priority}</td>
-                    <td className="py-2 whitespace-nowrap">
-                      <button onClick={() => startEdit(item)} className="mr-2 text-xs text-gray-600 hover:text-gray-900">
-                        編集
-                      </button>
-                      <button onClick={() => handleDeleteItem(item.id)} className="text-xs text-red-500 hover:text-red-700">
-                        削除
-                      </button>
-                    </td>
-                  </tr>
-                ),
-              )}
-            </tbody>
-          </table>
+          <ul className="space-y-2">
+            {(deliverable as StructuredListContent).items.map((item) =>
+              editingId === item.id && editDraft ? (
+                <li key={item.id} className="rounded-lg border border-gray-200 p-3">
+                  <div className="mb-2 flex items-center justify-between">
+                    <span className="font-mono text-xs text-gray-400">{item.id}</span>
+                    <select
+                      value={editDraft.priority}
+                      onChange={(e) => setEditDraft({ ...editDraft, priority: e.target.value })}
+                      className="rounded border border-gray-300 px-1 py-0.5 text-xs"
+                    >
+                      <option value="Must">Must</option>
+                      <option value="Should">Should</option>
+                      <option value="Could">Could</option>
+                    </select>
+                  </div>
+                  <input
+                    value={editDraft.title}
+                    onChange={(e) => setEditDraft({ ...editDraft, title: e.target.value })}
+                    placeholder="タイトル"
+                    className="mb-1.5 w-full rounded border border-gray-300 px-2 py-1 text-sm font-medium"
+                  />
+                  <textarea
+                    value={editDraft.description}
+                    onChange={(e) => setEditDraft({ ...editDraft, description: e.target.value })}
+                    placeholder="説明"
+                    rows={2}
+                    className="w-full rounded border border-gray-300 px-2 py-1 text-sm"
+                  />
+                  <div className="mt-2 flex justify-end gap-3">
+                    <button
+                      onClick={handleSaveEdit}
+                      disabled={saving}
+                      className="text-xs font-medium text-brand-700 hover:text-brand-800 disabled:opacity-50"
+                    >
+                      保存
+                    </button>
+                    <button
+                      onClick={() => {
+                        setEditingId(null);
+                        setEditDraft(null);
+                      }}
+                      className="text-xs text-gray-500 hover:text-gray-700"
+                    >
+                      取消
+                    </button>
+                  </div>
+                </li>
+              ) : (
+                <li key={item.id} className="rounded-lg border border-gray-200 p-3 hover:border-gray-300">
+                  <div className="mb-1 flex items-center justify-between gap-2">
+                    <span className="font-mono text-xs text-gray-400">{item.id}</span>
+                    <span className={`rounded-full px-2 py-0.5 text-xs ${PRIORITY_BADGE_CLASS[item.priority] ?? "bg-gray-100 text-gray-600"}`}>
+                      {item.priority}
+                    </span>
+                  </div>
+                  <p className="font-medium text-gray-900">{item.title}</p>
+                  <p className="mt-0.5 text-sm text-gray-600">{item.description}</p>
+                  {item.relatedIds && item.relatedIds.length > 0 && (
+                    <p className="mt-2 text-xs text-gray-400">関連: {item.relatedIds.join(", ")}</p>
+                  )}
+                  <div className="mt-2 flex justify-end gap-3">
+                    <button onClick={() => startEdit(item)} className="text-xs text-gray-600 hover:text-gray-900">
+                      編集
+                    </button>
+                    <button onClick={() => handleDeleteItem(item.id)} className="text-xs text-red-500 hover:text-red-700">
+                      削除
+                    </button>
+                  </div>
+                </li>
+              ),
+            )}
+          </ul>
           <button
             onClick={handleAddItem}
             className="mt-3 rounded-md border border-dashed border-gray-300 px-3 py-1.5 text-xs text-gray-600 hover:bg-gray-50"
