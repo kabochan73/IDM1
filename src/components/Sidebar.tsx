@@ -2,11 +2,15 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { LogoutButton } from "@/components/LogoutButton";
 import { CreateProjectModal } from "@/components/CreateProjectModal";
+import { getPhaseConfig } from "@/lib/phases";
+import { STATUS_DOT_CLASS } from "@/lib/phaseStatus";
+import type { Phase } from "@/generated/prisma/client";
 
 type ProjectSummary = { id: string; title: string };
+type ProjectDetail = { id: string; title: string; phases: Phase[] };
 
 function LogoMark() {
   return (
@@ -46,17 +50,134 @@ function PlusIcon() {
   );
 }
 
+function BackIcon() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+      <path d="M15 18l-6-6 6-6" />
+    </svg>
+  );
+}
+
 function navItemClass(active: boolean) {
   return `flex items-center gap-2.5 rounded-lg px-2.5 py-2 text-sm ${
     active ? "bg-gray-800 text-white" : "text-gray-300 hover:bg-gray-800 hover:text-white"
   }`;
 }
 
+function GlobalNav({
+  pathname,
+  projects,
+  onCreateClick,
+}: {
+  pathname: string;
+  projects: ProjectSummary[];
+  onCreateClick: () => void;
+}) {
+  return (
+    <div>
+      <nav className="space-y-1">
+        <Link href="/projects" className={navItemClass(pathname === "/projects")}>
+          <HomeIcon />
+          ホーム
+        </Link>
+      </nav>
+
+      <div className="mt-5">
+        <Link href="/projects" className={navItemClass(false)}>
+          <FolderIcon />
+          プロジェクト
+        </Link>
+        <nav className="mt-1 space-y-0.5">
+          {projects.map((project) => {
+            const href = `/projects/${project.id}`;
+            const isActive = pathname === href;
+            return (
+              <Link key={project.id} href={href} title={project.title} className={navItemClass(isActive)}>
+                {isActive ? (
+                  <span className="h-2 w-2 shrink-0 rounded-full bg-green-400" />
+                ) : (
+                  <span className="shrink-0 text-gray-500">
+                    <FolderIcon />
+                  </span>
+                )}
+                <span className="truncate">{project.title}</span>
+              </Link>
+            );
+          })}
+          <button type="button" onClick={onCreateClick} className={`w-full ${navItemClass(false)}`}>
+            <PlusIcon />
+            新規プロジェクト
+          </button>
+        </nav>
+      </div>
+    </div>
+  );
+}
+
+function ProjectNav({ pathname, project }: { pathname: string; project: ProjectDetail }) {
+  const sortedPhases = [...project.phases].sort((a, b) => a.order - b.order);
+
+  return (
+    <div>
+      <Link href="/projects" className={navItemClass(false)}>
+        <BackIcon />
+        プロジェクト一覧
+      </Link>
+      <p className="mt-4 mb-1 truncate px-2.5 text-xs font-medium tracking-wide text-gray-500" title={project.title}>
+        {project.title}
+      </p>
+      <nav className="space-y-0.5">
+        {sortedPhases.map((phase) => {
+          const config = getPhaseConfig(phase.type);
+          const href = `/projects/${project.id}/phases/${phase.type.toLowerCase()}`;
+          const reachable = phase.status !== "NOT_STARTED";
+          const content = (
+            <>
+              <span className={`h-2 w-2 shrink-0 rounded-full ${STATUS_DOT_CLASS[phase.status]}`} />
+              <span className="truncate">
+                {config.order}. {config.labelJa}
+              </span>
+            </>
+          );
+          return reachable ? (
+            <Link key={phase.id} href={href} className={navItemClass(pathname === href)}>
+              {content}
+            </Link>
+          ) : (
+            <span key={phase.id} className={`${navItemClass(false)} opacity-50`}>
+              {content}
+            </span>
+          );
+        })}
+      </nav>
+    </div>
+  );
+}
+
 /** フェーズ画面(設計画面)では画面を広く使いたいので、サイドバーは表示しない。 */
 export function Sidebar({ projects }: { projects: ProjectSummary[] }) {
   const pathname = usePathname();
   const [showCreateModal, setShowCreateModal] = useState(false);
+  const [projectDetail, setProjectDetail] = useState<ProjectDetail | null>(null);
+
   const isPhaseScreen = pathname.includes("/phases/");
+  const projectModeMatch = /^\/projects\/([^/]+)$/.exec(pathname);
+  const projectId = projectModeMatch?.[1] ?? null;
+
+  useEffect(() => {
+    // projectIdがnullの間は何もしない。表示側は`projectDetail?.id === projectId`で
+    // 「今のページと一致するデータだけ」を使うので、ここで明示的にnullへリセットする必要はない。
+    if (!projectId) return;
+    let cancelled = false;
+    fetch(`/api/projects/${projectId}`)
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        if (!cancelled && data?.project) setProjectDetail(data.project);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [projectId]);
 
   if (isPhaseScreen) return null;
 
@@ -71,41 +192,11 @@ export function Sidebar({ projects }: { projects: ProjectSummary[] }) {
           </div>
         </Link>
 
-        <nav className="space-y-1">
-          <Link href="/projects" className={navItemClass(pathname === "/projects")}>
-            <HomeIcon />
-            ホーム
-          </Link>
-        </nav>
-
-        <div className="mt-5">
-          <Link href="/projects" className={navItemClass(false)}>
-            <FolderIcon />
-            プロジェクト
-          </Link>
-          <nav className="mt-1 space-y-0.5">
-            {projects.map((project) => {
-              const href = `/projects/${project.id}`;
-              const isActive = pathname === href;
-              return (
-                <Link key={project.id} href={href} title={project.title} className={navItemClass(isActive)}>
-                  {isActive ? (
-                    <span className="h-2 w-2 shrink-0 rounded-full bg-green-400" />
-                  ) : (
-                    <span className="shrink-0 text-gray-500">
-                      <FolderIcon />
-                    </span>
-                  )}
-                  <span className="truncate">{project.title}</span>
-                </Link>
-              );
-            })}
-            <button type="button" onClick={() => setShowCreateModal(true)} className={`w-full ${navItemClass(false)}`}>
-              <PlusIcon />
-              新規プロジェクト
-            </button>
-          </nav>
-        </div>
+        {projectId && projectDetail && projectDetail.id === projectId ? (
+          <ProjectNav pathname={pathname} project={projectDetail} />
+        ) : (
+          <GlobalNav pathname={pathname} projects={projects} onCreateClick={() => setShowCreateModal(true)} />
+        )}
       </div>
       <LogoutButton className="rounded-lg px-2.5 py-2 text-left text-sm text-gray-400 hover:bg-gray-800 hover:text-white" />
       {showCreateModal && <CreateProjectModal onClose={() => setShowCreateModal(false)} />}
