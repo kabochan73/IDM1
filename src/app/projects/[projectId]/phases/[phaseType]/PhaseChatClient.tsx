@@ -143,7 +143,7 @@ export function PhaseChatClient({
   }
 
   return (
-    <div className="mx-auto max-w-3xl rounded-lg border border-gray-200 bg-white">
+    <div className="rounded-lg border border-gray-200 bg-white">
       <div className="flex items-center justify-between border-b border-gray-200 px-4 py-3">
         <h1 className="text-sm font-semibold text-gray-900">{phaseLabel}フェーズ</h1>
         <span className={`rounded-full px-2 py-0.5 text-xs ${STATUS_BADGE_CLASS[status as PhaseStatus]}`}>
