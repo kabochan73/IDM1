@@ -44,7 +44,7 @@ export function ProjectsClient({ initialProjects }: { initialProjects: ProjectSu
         {projects.map((project) => (
           <li
             key={project.id}
-            className="flex flex-col justify-between rounded-lg border border-gray-200 bg-white p-4 shadow-sm"
+            className="flex flex-col justify-between rounded-lg border border-gray-200 bg-white p-4 shadow-sm transition-shadow hover:shadow-md"
           >
             <div>
               <Link href={`/projects/${project.id}`} className="font-medium text-gray-900 hover:underline">

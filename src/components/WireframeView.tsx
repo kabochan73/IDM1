@@ -175,7 +175,7 @@ export function WireframeView({
           </button>
         ))}
       </div>
-      <div className="space-y-3 rounded-lg border border-gray-200 bg-white p-4">
+      <div className="space-y-3 rounded-lg border border-gray-200 bg-white p-4 shadow-sm">
         {active.elements.map((el, i) => (
           <ElementBox key={i} element={el} />
         ))}
