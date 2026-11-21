@@ -154,14 +154,14 @@ function ProjectNav({ pathname, project }: { pathname: string; project: ProjectD
   );
 }
 
-/** フェーズ画面(設計画面)では画面を広く使いたいので、サイドバーは表示しない。 */
 export function Sidebar({ projects }: { projects: ProjectSummary[] }) {
   const pathname = usePathname();
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [projectDetail, setProjectDetail] = useState<ProjectDetail | null>(null);
 
-  const isPhaseScreen = pathname.includes("/phases/");
-  const projectModeMatch = /^\/projects\/([^/]+)$/.exec(pathname);
+  // プロジェクト詳細ページ(/projects/[id])とフェーズ画面(/projects/[id]/phases/[type])の
+  // 両方でプロジェクトモード(このプロジェクトの8フェーズ一覧)にする。
+  const projectModeMatch = /^\/projects\/([^/]+)(?:\/phases\/.+)?$/.exec(pathname);
   const projectId = projectModeMatch?.[1] ?? null;
 
   useEffect(() => {
@@ -178,8 +178,6 @@ export function Sidebar({ projects }: { projects: ProjectSummary[] }) {
       cancelled = true;
     };
   }, [projectId]);
-
-  if (isPhaseScreen) return null;
 
   return (
     <aside className="flex w-60 flex-col justify-between bg-gray-900 px-3 py-5 text-gray-100">

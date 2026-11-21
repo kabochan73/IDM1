@@ -6,7 +6,6 @@ import { loadProjectWithPhases, isPhaseUnlocked, findEarliestIncompletePhase } f
 import { getPhaseConfig } from "@/lib/phases";
 import type { PhaseType } from "@/generated/prisma/client";
 import { PhaseChatClient } from "./PhaseChatClient";
-import { PhaseStepper } from "@/components/PhaseStepper";
 
 export default async function PhasePage(props: PageProps<"/projects/[projectId]/phases/[phaseType]">) {
   const { userId } = await requireUser();
@@ -32,13 +31,10 @@ export default async function PhasePage(props: PageProps<"/projects/[projectId]/
   const config = getPhaseConfig(targetType);
 
   return (
-    <div className="py-6">
+    <div className="px-8 py-10">
       <Link href={`/projects/${projectId}`} className="mb-3 inline-block text-sm text-gray-500 hover:text-gray-700">
         ← {project.title}
       </Link>
-      <div className="mb-4 rounded-lg border border-gray-200 bg-white p-3">
-        <PhaseStepper projectId={projectId} phases={project.phases} currentType={phaseType} />
-      </div>
       <PhaseChatClient
         projectId={projectId}
         phaseType={phaseType}
