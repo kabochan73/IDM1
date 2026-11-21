@@ -10,6 +10,12 @@ const FINALIZE_MARKER = "\u0000FINALIZE_READY\u0000";
 
 type ChatMessageView = { role: "USER" | "ASSISTANT"; content: string };
 
+function tabClass(active: boolean) {
+  return `border-b-2 px-3 py-2 text-sm ${
+    active ? "border-brand-600 font-medium text-brand-700" : "border-transparent text-gray-500 hover:text-gray-700"
+  }`;
+}
+
 export function PhaseChatClient({
   projectId,
   phaseType,
@@ -37,6 +43,9 @@ export function PhaseChatClient({
   const [status, setStatus] = useState(phaseStatus);
   const [reopened, setReopened] = useState(false);
   const [resolving, setResolving] = useState(false);
+  const [activeTab, setActiveTab] = useState<"chat" | "deliverable">("chat");
+
+  const isChecklist = deliverableFormat === "CHECKLIST";
 
   async function handleResolveReview(regenerate = false) {
     setResolving(true);
@@ -133,19 +142,87 @@ export function PhaseChatClient({
     router.refresh();
   }
 
-  const isChecklist = deliverableFormat === "CHECKLIST";
-
   return (
-    <div className={isChecklist ? "" : "grid grid-cols-1 md:grid-cols-2"}>
-      {!isChecklist && (
-        <div className="flex flex-col rounded-lg border border-gray-200 bg-white">
-          <div className="flex items-center justify-between border-b border-gray-200 px-4 py-3">
-            <h1 className="text-sm font-semibold text-gray-900">{phaseLabel}フェーズ</h1>
-            <span className={`rounded-full px-2 py-0.5 text-xs ${STATUS_BADGE_CLASS[status as PhaseStatus]}`}>
-              {STATUS_LABEL[status as PhaseStatus]}
-            </span>
+    <div className="mx-auto max-w-3xl rounded-lg border border-gray-200 bg-white">
+      <div className="flex items-center justify-between border-b border-gray-200 px-4 py-3">
+        <h1 className="text-sm font-semibold text-gray-900">{phaseLabel}フェーズ</h1>
+        <span className={`rounded-full px-2 py-0.5 text-xs ${STATUS_BADGE_CLASS[status as PhaseStatus]}`}>
+          {STATUS_LABEL[status as PhaseStatus]}
+        </span>
+      </div>
+
+      {readyToFinalize && (
+        <div className="border-b border-gray-200 bg-amber-50 px-4 py-3">
+          <p className="mb-2 text-sm text-gray-800">{readyToFinalize}</p>
+          <div className="flex gap-2">
+            <button
+              onClick={handleFinalize}
+              disabled={finalizing}
+              className="rounded-md bg-gray-900 px-3 py-1.5 text-sm text-white hover:bg-gray-800 disabled:opacity-50"
+            >
+              {finalizing ? "確定中..." : "確定する"}
+            </button>
+            <button
+              onClick={() => setReadyToFinalize(null)}
+              className="rounded-md border border-gray-300 px-3 py-1.5 text-sm text-gray-700"
+            >
+              まだ続ける
+            </button>
           </div>
-          <div className="flex-1 space-y-3 overflow-y-auto px-4 py-4" style={{ maxHeight: "60vh" }}>
+        </div>
+      )}
+
+      {status === "NEEDS_REVIEW" && (
+        <div className="flex items-center justify-between border-b border-gray-200 bg-amber-50 px-4 py-3">
+          <p className="text-sm text-amber-800">上流フェーズが変更されました。内容を確認してください。</p>
+          <div className="flex gap-2">
+            <button
+              onClick={() => handleResolveReview(false)}
+              disabled={resolving}
+              className="rounded-md border border-amber-300 bg-white px-2 py-1 text-xs text-amber-800 hover:bg-amber-100 disabled:opacity-50"
+            >
+              {resolving ? "処理中..." : "問題なし"}
+            </button>
+            {isChecklist && (
+              <button
+                onClick={() => handleResolveReview(true)}
+                disabled={resolving}
+                className="rounded-md border border-amber-300 bg-white px-2 py-1 text-xs text-amber-800 hover:bg-amber-100 disabled:opacity-50"
+              >
+                {resolving ? "処理中..." : "再生成(チェック済みは維持)"}
+              </button>
+            )}
+          </div>
+        </div>
+      )}
+
+      {!isChecklist && (
+        <div className="flex gap-1 border-b border-gray-200 px-4">
+          <button onClick={() => setActiveTab("chat")} className={tabClass(activeTab === "chat")}>
+            チャット
+          </button>
+          <button onClick={() => setActiveTab("deliverable")} className={tabClass(activeTab === "deliverable")}>
+            成果物
+          </button>
+        </div>
+      )}
+
+      {isChecklist || activeTab === "deliverable" ? (
+        <div className="p-4">
+          <DeliverablePanel
+            projectId={projectId}
+            phaseType={phaseType}
+            format={deliverableFormat}
+            deliverable={deliverable as Parameters<typeof DeliverablePanel>[0]["deliverable"]}
+            onSaved={(content) => {
+              setDeliverable(content);
+              if (isChecklist) setStatus("DONE");
+            }}
+          />
+        </div>
+      ) : (
+        <>
+          <div className="space-y-3 overflow-y-auto px-4 py-4" style={{ maxHeight: "60vh" }}>
             {messages.map((m, i) => (
               <div key={i} className={m.role === "USER" ? "text-right" : "text-left"}>
                 <span
@@ -159,27 +236,6 @@ export function PhaseChatClient({
             ))}
             {messages.length === 0 && <p className="text-sm text-gray-400">AIとのチャットでヒアリングが始まります。</p>}
           </div>
-
-          {readyToFinalize && (
-            <div className="border-t border-gray-200 bg-amber-50 px-4 py-3">
-              <p className="mb-2 text-sm text-gray-800">{readyToFinalize}</p>
-              <div className="flex gap-2">
-                <button
-                  onClick={handleFinalize}
-                  disabled={finalizing}
-                  className="rounded-md bg-gray-900 px-3 py-1.5 text-sm text-white hover:bg-gray-800 disabled:opacity-50"
-                >
-                  {finalizing ? "確定中..." : "確定する"}
-                </button>
-                <button
-                  onClick={() => setReadyToFinalize(null)}
-                  className="rounded-md border border-gray-300 px-3 py-1.5 text-sm text-gray-700"
-                >
-                  まだ続ける
-                </button>
-              </div>
-            </div>
-          )}
 
           {(status === "DONE" || status === "NEEDS_REVIEW") && !reopened ? (
             <div className="flex items-center justify-between border-t border-gray-200 p-4">
@@ -209,53 +265,8 @@ export function PhaseChatClient({
               </button>
             </form>
           )}
-        </div>
+        </>
       )}
-
-      <div className="rounded-lg border border-gray-200 bg-white p-4">
-        {isChecklist && (
-          <div className="mb-3 flex items-center justify-between">
-            <h1 className="text-sm font-semibold text-gray-900">{phaseLabel}</h1>
-            <span className={`rounded-full px-2 py-0.5 text-xs ${STATUS_BADGE_CLASS[status as PhaseStatus]}`}>
-              {STATUS_LABEL[status as PhaseStatus]}
-            </span>
-          </div>
-        )}
-        {status === "NEEDS_REVIEW" && (
-          <div className="mb-3 flex items-center justify-between rounded-md bg-amber-50 px-3 py-2">
-            <p className="text-sm text-amber-800">上流フェーズが変更されました。内容を確認してください。</p>
-            <div className="flex gap-2">
-              <button
-                onClick={() => handleResolveReview(false)}
-                disabled={resolving}
-                className="rounded-md border border-amber-300 bg-white px-2 py-1 text-xs text-amber-800 hover:bg-amber-100 disabled:opacity-50"
-              >
-                {resolving ? "処理中..." : "問題なし"}
-              </button>
-              {isChecklist && (
-                <button
-                  onClick={() => handleResolveReview(true)}
-                  disabled={resolving}
-                  className="rounded-md border border-amber-300 bg-white px-2 py-1 text-xs text-amber-800 hover:bg-amber-100 disabled:opacity-50"
-                >
-                  {resolving ? "処理中..." : "再生成(チェック済みは維持)"}
-                </button>
-              )}
-            </div>
-          </div>
-        )}
-        {!isChecklist && <h2 className="mb-3 text-sm font-semibold text-gray-900">成果物</h2>}
-        <DeliverablePanel
-          projectId={projectId}
-          phaseType={phaseType}
-          format={deliverableFormat}
-          deliverable={deliverable as Parameters<typeof DeliverablePanel>[0]["deliverable"]}
-          onSaved={(content) => {
-            setDeliverable(content);
-            if (isChecklist) setStatus("DONE");
-          }}
-        />
-      </div>
     </div>
   );
 }
