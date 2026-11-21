@@ -33,6 +33,20 @@ type ErDiagramContent = {
 };
 type ChecklistItem = { id: string; label: string; relatedFunctionalItem?: string; done: boolean };
 type ChecklistContent = { items: ChecklistItem[] };
+
+function groupChecklistItems(items: ChecklistItem[]) {
+  const order: string[] = [];
+  const groups = new Map<string, ChecklistItem[]>();
+  for (const item of items) {
+    const key = item.relatedFunctionalItem ?? "その他";
+    if (!groups.has(key)) {
+      groups.set(key, []);
+      order.push(key);
+    }
+    groups.get(key)!.push(item);
+  }
+  return order.map((key) => ({ key, items: groups.get(key)! }));
+}
 type DeliverableContent = StructuredListContent | WireframeContent | ErDiagramContent | ChecklistContent;
 
 export function DeliverablePanel({
@@ -450,30 +464,62 @@ export function DeliverablePanel({
         </div>
       )}
 
-      {view === "structured" && format === "CHECKLIST" && (
-        <ul className="space-y-2">
-          {(deliverable as ChecklistContent).items.map((item) => (
-            <li key={item.id} className="flex items-start gap-2 rounded-md border border-gray-100 px-2 py-1.5 text-sm">
-              <input
-                type="checkbox"
-                checked={item.done}
-                onChange={() => handleToggleDone(item.id)}
-                disabled={saving}
-                className="mt-0.5"
-              />
-              <div>
-                <span className={item.done ? "text-gray-400 line-through" : "text-gray-900"}>{item.label}</span>
-                {item.relatedFunctionalItem && (
-                  <span className="ml-2 font-mono text-xs text-gray-400">{item.relatedFunctionalItem}</span>
-                )}
+      {view === "structured" &&
+        format === "CHECKLIST" &&
+        (() => {
+          const items = (deliverable as ChecklistContent).items;
+          const doneCount = items.filter((item) => item.done).length;
+          const groups = groupChecklistItems(items);
+
+          if (items.length === 0) {
+            return <p className="text-sm text-gray-400">TODO項目がありません。</p>;
+          }
+
+          return (
+            <div>
+              <div className="mb-4">
+                <div className="mb-1 flex items-center justify-between text-xs text-gray-500">
+                  <span>進捗</span>
+                  <span>
+                    {doneCount}/{items.length} 完了
+                  </span>
+                </div>
+                <div className="h-1.5 w-full rounded-full bg-gray-100">
+                  <div
+                    className="h-1.5 rounded-full bg-brand-600"
+                    style={{ width: `${(doneCount / items.length) * 100}%` }}
+                  />
+                </div>
               </div>
-            </li>
-          ))}
-          {(deliverable as ChecklistContent).items.length === 0 && (
-            <p className="text-sm text-gray-400">TODO項目がありません。</p>
-          )}
-        </ul>
-      )}
+              <div className="space-y-4">
+                {groups.map((group) => (
+                  <div key={group.key}>
+                    <h4 className="mb-1.5 text-xs font-semibold text-gray-500">関連: {group.key}</h4>
+                    <ul className="space-y-1.5 rounded-lg border border-gray-200 bg-white p-2 shadow-sm">
+                      {group.items.map((item) => (
+                        <li
+                          key={item.id}
+                          className="flex items-start gap-2 rounded-md px-2 py-1.5 text-sm hover:bg-gray-50"
+                        >
+                          <input
+                            type="checkbox"
+                            checked={item.done}
+                            onChange={() => handleToggleDone(item.id)}
+                            disabled={saving}
+                            className="mt-0.5"
+                          />
+                          <span className={item.done ? "text-gray-400 line-through" : "text-gray-900"}>
+                            {item.label}
+                          </span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                ))}
+              </div>
+            </div>
+          );
+        })()}
     </div>
   );
 }
