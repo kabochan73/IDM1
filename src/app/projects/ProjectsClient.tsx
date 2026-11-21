@@ -10,6 +10,7 @@ type ProjectSummary = {
   description: string | null;
   doneCount: number;
   totalCount: number;
+  currentPhaseLabel: string;
 };
 
 export function ProjectsClient({ initialProjects }: { initialProjects: ProjectSummary[] }) {
@@ -42,7 +43,14 @@ export function ProjectsClient({ initialProjects }: { initialProjects: ProjectSu
     router.refresh();
     const data = await res.json();
     setProjects((prev) => [
-      { id: data.project.id, title: data.project.title, description: data.project.description, doneCount: 0, totalCount: 8 },
+      {
+        id: data.project.id,
+        title: data.project.title,
+        description: data.project.description,
+        doneCount: 0,
+        totalCount: 8,
+        currentPhaseLabel: "進行中: 企画",
+      },
       ...prev,
     ]);
   }
@@ -88,6 +96,7 @@ export function ProjectsClient({ initialProjects }: { initialProjects: ProjectSu
               <Link href={`/projects/${project.id}`} className="font-medium text-gray-900 hover:underline">
                 {project.title}
               </Link>
+              <p className="mt-1 text-sm text-brand-700">{project.currentPhaseLabel}</p>
               <div className="mt-2 h-1.5 w-full rounded-full bg-gray-100">
                 <div
                   className="h-1.5 rounded-full bg-brand-600"
