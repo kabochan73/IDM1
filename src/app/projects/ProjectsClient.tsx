@@ -40,7 +40,7 @@ export function ProjectsClient({ initialProjects }: { initialProjects: ProjectSu
         <h1 className="text-lg font-semibold text-gray-900">プロジェクト</h1>
       </div>
 
-      <ul className="grid gap-3 sm:grid-cols-2">
+      <ul className="flex flex-col gap-3">
         {projects.map((project) => (
           <li
             key={project.id}
