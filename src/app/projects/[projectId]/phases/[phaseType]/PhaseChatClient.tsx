@@ -2,6 +2,8 @@
 
 import { useRouter } from "next/navigation";
 import { useState, type FormEvent } from "react";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 import { DeliverablePanel } from "@/components/DeliverablePanel";
 import { STATUS_BADGE_CLASS, STATUS_LABEL } from "@/lib/phaseStatus";
 import type { PhaseStatus, DeliverableFormat } from "@/generated/prisma/client";
@@ -14,6 +16,41 @@ function tabClass(active: boolean) {
   return `border-b-2 px-3 py-2 text-sm ${
     active ? "border-brand-600 font-medium text-brand-700" : "border-transparent text-gray-500 hover:text-gray-700"
   }`;
+}
+
+function AssistantMessage({ content }: { content: string }) {
+  return (
+    <div className="text-sm leading-relaxed [&>*:first-child]:mt-0 [&>*:last-child]:mb-0">
+      <ReactMarkdown
+        remarkPlugins={[remarkGfm]}
+        components={{
+          p: ({ children }) => <p className="mb-2">{children}</p>,
+          strong: ({ children }) => <strong className="font-semibold text-gray-900">{children}</strong>,
+          h1: ({ children }) => <p className="mt-3 mb-1 font-semibold text-gray-900">{children}</p>,
+          h2: ({ children }) => <p className="mt-3 mb-1 font-semibold text-gray-900">{children}</p>,
+          h3: ({ children }) => <p className="mt-3 mb-1 font-semibold text-gray-900">{children}</p>,
+          ul: ({ children }) => <ul className="mb-2 list-disc space-y-0.5 pl-5">{children}</ul>,
+          ol: ({ children }) => <ol className="mb-2 list-decimal space-y-0.5 pl-5">{children}</ol>,
+          li: ({ children }) => <li>{children}</li>,
+          code: ({ children }) => <code className="rounded bg-gray-200 px-1 font-mono text-xs">{children}</code>,
+          hr: () => <hr className="my-2 border-gray-200" />,
+          table: ({ children }) => (
+            <div className="mb-2 overflow-x-auto">
+              <table className="w-full border-collapse text-xs">{children}</table>
+            </div>
+          ),
+          th: ({ children }) => (
+            <th className="border border-gray-200 bg-gray-100 px-2 py-1 text-left font-semibold text-gray-700">
+              {children}
+            </th>
+          ),
+          td: ({ children }) => <td className="border border-gray-200 px-2 py-1 align-top">{children}</td>,
+        }}
+      >
+        {content}
+      </ReactMarkdown>
+    </div>
+  );
 }
 
 export function PhaseChatClient({
@@ -225,13 +262,13 @@ export function PhaseChatClient({
           <div className="space-y-3 overflow-y-auto px-4 py-4" style={{ maxHeight: "60vh" }}>
             {messages.map((m, i) => (
               <div key={i} className={m.role === "USER" ? "text-right" : "text-left"}>
-                <span
-                  className={`inline-block max-w-[85%] rounded-lg px-3 py-2 text-sm whitespace-pre-wrap ${
-                    m.role === "USER" ? "bg-gray-900 text-white" : "bg-gray-100 text-gray-900"
+                <div
+                  className={`inline-block max-w-[85%] rounded-lg px-3 py-2 text-left ${
+                    m.role === "USER" ? "bg-gray-900 text-sm whitespace-pre-wrap text-white" : "bg-gray-100 text-gray-900"
                   }`}
                 >
-                  {m.content || "…"}
-                </span>
+                  {m.role === "ASSISTANT" ? <AssistantMessage content={m.content || "…"} /> : m.content}
+                </div>
               </div>
             ))}
             {messages.length === 0 && <p className="text-sm text-gray-400">AIとのチャットでヒアリングが始まります。</p>}

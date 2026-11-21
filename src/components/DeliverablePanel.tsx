@@ -447,26 +447,6 @@ export function DeliverablePanel({
               </button>
             </div>
           )}
-          <div className="space-y-3">
-            {(deliverable as ErDiagramContent).entities.map((entity) => (
-              <div key={entity.name}>
-                <h4 className="mb-1 text-xs font-semibold text-gray-700">{entity.name}</h4>
-                <table className="w-full text-left text-xs">
-                  <tbody>
-                    {entity.fields.map((field) => (
-                      <tr key={field.name} className="border-b border-gray-100">
-                        <td className="py-1 pr-2 font-mono text-gray-600">{field.name}</td>
-                        <td className="py-1 pr-2 text-gray-500">{field.type}</td>
-                        <td className="py-1 text-gray-500">
-                          {[field.isPK && "PK", field.isFK && "FK"].filter(Boolean).join(", ")}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            ))}
-          </div>
         </div>
       )}
 
